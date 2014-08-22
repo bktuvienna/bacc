@@ -1,0 +1,21 @@
+.centered-index-outer{
+	margin:auto;
+	width:10em;
+}
+
+.centered-index-inner{
+	position:absolute;
+	top:50%;
+	height:9em;
+	margin-top:-4.5em;
+	border-style:solid 2px #eee;
+	box-shadow: 0 0 3px #000;
+}
+
+ul{
+	list-style:none;
+	padding:2em;
+	margin:0;
+	line-height:1.2;
+}
+
