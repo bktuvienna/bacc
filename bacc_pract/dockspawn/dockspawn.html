@@ -4,17 +4,39 @@
 <head>
 	<link rel="stylesheet" type="text/css" href="dockspawn_style.css">
 	
-	<link rel="stylesheet" type="text/css" href="dockspawn_api/css/dock-manager">
+	<link rel="stylesheet" type="text/css" href="dockspawn_api/js/out/css/dock-manager.css">
 	<script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
 	<script src="dockspawn_api/js/out/js/dockspawn.js" type="text/javascript"></script>
-	<script src="dockspawn_implementation.js" type="text/javascript"></script>
 	
 </head>
 <body>
 	<div id="dockManager"></div>
-	<div id="properties">testproperties</div>
-	<div id="code">testcode</div>
-	<div id="output">testoutput</div>
+	<div id="properties" caption="Properties">testproperties</div>
+	<div id="code" caption="Code">testcode</div>
+	<div id="output" caption="Output">testoutput</div>
+	<script>
+	window.onload = function() {
+	var divDockManager = document.getElementById('dockManager');
+	var dockManager = new dockspawn.DockManager(divDockManager);
+	dockManager.initialize();
+	
+	var onResized = function(e)
+		{
+			dockManager.resize(window.innerWidth - (divDockManager.clientLeft + divDockManager.offsetLeft), window.innerHeight - (divDockManager.clientTop + divDockManager.offsetTop));
+		}
+	window.onresize = onResized;
+	onResized(null);
+	
+	var properties = new dockspawn.PanelContainer(document.getElementById('properties'),dockManager);
+	var code = new dockspawn.PanelContainer(document.getElementById('code'),dockManager);
+	var output = new dockspawn.PanelContainer(document.getElementById('output'),dockManager);
+	
+	var documentNode = dockManager.context.model.documentManagerNode;
+	var codeNode = dockManager.dockFill(documentNode, code)
+	var propertiesNode = dockManager.dockLeft(codeNode, properties,0.15);
+	var outputNode = dockManager.dockRight(codeNode,output,0.15);
+	}
+	</script>
 </body>
 </html>
 

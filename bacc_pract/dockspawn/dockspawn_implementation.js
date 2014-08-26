@@ -15,7 +15,7 @@ window.onload = function() {
 	var output = new dockspawn.PanelContainer(document.getElementById('output'),dockManager);
 	
 	var documentNode = dockManager.context.model.documentManagerNode;
-	var propertiesNode = dockManager.dockLeft(documentNode, properties,0.15);
 	var codeNode = dockManager.dockFill(documentNode, code)
-	var outputNode = dockManager.dockRight(documentNode,output,0.15);
+	var propertiesNode = dockManager.dockLeft(codeNode, properties,0.15);
+	var outputNode = dockManager.dockRight(codeNode,output,0.15);
 }
