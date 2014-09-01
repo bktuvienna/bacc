@@ -26,6 +26,10 @@ header li, header ul {
 	display:inline;
 }
 
+header li {
+	padding-right:0.5em;
+}
+
 header ul{
 	float:right;
 	padding:0;
