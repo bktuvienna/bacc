@@ -36,6 +36,6 @@ header ul{
 	margin:0;
 }
 
-.nav-entry-prot:hover {
+header ul li a:hover {
 	border-bottom: solid 0.3em #33b5e5;
 }
