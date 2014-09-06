@@ -5,35 +5,37 @@
 	<link href='http://fonts.googleapis.com/css?family=Oswald' rel='stylesheet' type='text/css'>
 	<link href='http://fonts.googleapis.com/css?family=Open+Sans:300' rel='stylesheet' type='text/css'>
 	<link rel="stylesheet" type="text/css" href="../css/css_reset.css">
-	<link rel="stylesheet" type="text/css" href="dockspawn_api/js/out/css/dock-manager.css">
 	<script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
-	<script src="dockspawn_api/js/out/js/dockspawn.js" type="text/javascript"></script>
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
 	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 	
 	<!-- imports custom css/js -->
-	<link rel="stylesheet" type="text/css" href="css/dockspawn_style.css">
 	<link rel="stylesheet" type="text/css" href="../prototype_style.css">
-	<script src="js/dockspawnController.js" type="text/javascript"></script>	
-	
-
-
+	<link rel="stylesheet" type="text/css" href="css/jqueryui_style.css">
+	<script type="text/javascript" src="js/jqueryuiController.js"></script>
 </head>
 <body>
 	<header>
-		<h1>Dock Spawn</h1>
+		<h1>JQueryUI</h1>
 		<ul>
 			<li class="nav-entry-prot"><a href="../index.html">Index</a></li>
-			<li class="nav-entry-prot"><a href="dockspawn.html">DockSpawn</a></li>
-			<li class="nav-entry-prot"><a href="../jqueryui/jqueryui.html">jQueryUI</a></li>
+			<li class="nav-entry-prot"><a href="../dockspawn/dockspawn.html">DockSpawn</a></li>
+			<li class="nav-entry-prot"><a href="jqueryui.html">jQueryUI</a></li>
 			<li class="nav-entry-prot">DojoToolkit</li>
 			<li class="nav-entry-prot">Docker</li>
 		</ul>
 	</header>
-	<div id="dockManager"></div>
-	<div id="properties" caption="Properties">testproperties</div>
-	<div id="code" caption="Code"></div>
-	<div id="output" caption="Output">testoutput</div>
+
+	<div id="left">
+		<div class="panel">testpanel-left</div>
+	</div>
 	
+	<div id="center">
+		<div class="panel">testpanel-center</div>
+	</div>
+	
+	<div id="right">
+		<div class="panel">testpanel-right</div>
+	</div>
 </body>
 </html>
-
