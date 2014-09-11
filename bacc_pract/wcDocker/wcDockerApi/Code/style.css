@@ -1,0 +1,352 @@
+/*!
+ * Web Cabin Docker - Docking Layout Interface.
+ *
+ * Dependancies:
+ *  JQuery 1.11.1
+ *
+ * Version: git-master
+ *
+ * Author: Jeff Houde (Lochemage@gmail.com)
+ * Web: http://docker.webcabin.org/
+ *
+ * Licensed under
+ *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
+ *
+ */
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  margin: 0px;
+}
+
+.wcDisableSelection {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: -moz-none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.wcWide {
+  width: 100%;
+}
+
+.wcTall {
+  height: 100%;
+}
+
+.wcDocker {
+  position: absolute;
+}
+
+.wcDockerTransition {
+  opacity: 0;
+}
+
+.wcFrame {
+  border: 2px inset black;
+  position: relative;
+}
+
+.wcFrameFlasher, .wcFrameShadower {
+  border: 0px;
+  margin: 0px;
+  padding: 0px;
+
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+
+  opacity: 0;
+}
+
+.wcFrameTitle {
+  width: 100%;
+  cursor: move;
+  overflow: hidden;
+  position: absolute;
+  text-align: left;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: -moz-none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.wcFrameButton {
+  width: 13px;
+  height: 13px;
+  position: relative;
+  float: right;
+  border: 2px outset #444444;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: center;
+  /*margin-right: 3px;*/
+
+  background-color: #555555;
+}
+
+.wcFrameButton:hover {
+  border: 2px outset #666666;
+  background-color: #686868;
+}
+
+.wcFrameButton:active {
+  border: 2px inset #AAAAAA;
+  background-color: #888888;
+}
+
+.wcFrameButtonToggled, .wcFrameButtonToggled:hover {
+  border-style: inset;
+}
+
+.wcFrameCenter {
+  overflow: hidden;
+  position: absolute;
+  top: 15px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+}
+
+.wcFloating {
+  position: fixed;
+  z-index: 2;
+}
+
+.wcLayout, .wcLayout tr, .wcLayout td {
+  border: 0px;
+  margin: 0px;
+  padding: 0px;
+  background-color: transparent;
+
+  border-spacing: 2px;
+}
+
+.wcLayout {
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  position: absolute;
+}
+
+.wcFrameEdge {
+  position: absolute;
+  z-index: 2;
+  border: 2px outset #444;
+  background-color: #222;
+}
+
+.wcFrameEdgeV {
+  width: 2px;
+  cursor: ew-resize;
+  border-top: 0px;
+  border-bottom: 0px;
+}
+
+.wcFrameEdgeH {
+  height: 2px;
+  cursor: ns-resize;
+  border-left: 0px;
+  border-right: 0px;
+}
+
+.wcFrameCornerNW {
+  height: 2px;
+  width: 2px;
+  cursor: nwse-resize;
+}
+
+.wcFrameCornerNE {
+  height: 2px;
+  width: 2px;
+  cursor: nesw-resize;
+}
+
+.wcSplitterBar {
+  z-index: 2;
+  position: absolute;
+}
+
+.wcSplitterBarV {
+  width: 2px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.wcSplitterBarH {
+  height: 2px;
+  width: 100%;
+  cursor: ns-resize;
+}
+
+.wcLayoutPane {
+  border: 0px;
+  margin: 0px;
+  padding: 0px;
+
+  display: inline-block;
+  position: absolute;
+}
+
+.wcPanelTab {
+  vertical-align: top;
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.wcPanelTabContent {
+  width: 100%;
+  height: 100%;
+}
+
+.wcPanelTabContent.wcPanelTabContentHidden {
+  display: none;
+}
+
+.wcResizing .wcHideOnResize .wcPanelTabContent {
+  display: none;
+}
+
+.wcGhost {
+  opacity: 0.0;
+  background-color: #444444;
+  position: fixed;
+  border: 0px;
+  border-radius: 6px;
+  z-index: 100;
+  cursor: move;
+}
+
+.wcScrollableX {
+  overflow-x: auto;
+}
+
+.wcScrollableY {
+  overflow-y: auto;
+}
+
+.wcOverflowVisible {
+  overflow: visible;
+}
+
+
+
+
+
+
+
+
+
+/* Default Theme */
+.wcPanelBackground {
+  background-color: gray;
+}
+
+.wcPanelBackground .wcCenter {
+  background-color: darkgray;
+}
+
+.wcFrameFlasher {
+  background-color: white;
+}
+
+.wcFrameShadower {
+  background-color: white;
+}
+
+.wcFrameTitle {
+  height: 17px;
+  background-color: #555;
+}
+
+.wcFrameCenter {
+  top: 17px;
+}
+
+.wcLayoutGrid, .wcLayoutGrid tr, .wcLayoutGrid td {
+  border: 1px solid #555555;
+}
+
+.wcLayoutGridAlternate tr:nth-child(even), .wcLayoutGridAltColor {
+  background-color: rgba(200, 200, 200, 0.2) !important;
+}
+
+.wcPanelTab {
+  color: #42454a;
+  background-color: #BBB;
+  border: 1px solid #000;
+  border-radius: 2px 2px 0px 0px;
+  border-bottom: 0px;
+  margin-right: 1px;
+  margin-top: 3px;
+  font-size: 12px;
+  padding-left: 2px;
+  padding-right: 2px;
+  padding-bottom: 0px;
+}
+
+.wcPanelTab:hover {
+  background-color: #FFF;
+}
+
+.wcPanelTabActive {
+  color: #000;
+  background-color: #888;
+  font-weight: bold;
+  margin-top: 1px;
+}
+
+.wcPanelTabActive:hover {
+  background-color: #CCC;
+}
+
+.wcFrameEdge {
+  position: absolute;
+  z-index: 2;
+  border: 2px outset #444;
+  background-color: #222;
+}
+
+.wcSplitterBar {
+  border: 1px outset darkgray;
+  background-color: gray;
+}
+
+.wcGhost {
+  background-color: #444444;
+  border: 0px;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background-color: #888;
+}
+
+::-webkit-scrollbar-corner {
+  background-color: #888;
+}
+
+::-webkit-scrollbar-track {
+  -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.7);
+}
