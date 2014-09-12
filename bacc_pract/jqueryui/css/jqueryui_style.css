@@ -1,26 +1,4 @@
-.panel{
-	width:100%;
-	height:100%;
-	border:solid 2px black;
+#container{
+	 height:52em;
 }
 
-#left{
-	float:left;
-	display:inline;
-	width:15%;
-	height:20em;
-}
-
-#center{
-	float:left;
-	display:inline;
-	width:70%;
-	height:20em;
-}
-
-#right{
-	float:right;
-	display:inline;
-	width:15%;
-	height:20em;
-}

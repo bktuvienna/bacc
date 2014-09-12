@@ -12,7 +12,10 @@
 	<!-- imports custom css/js -->
 	<link rel="stylesheet" type="text/css" href="../prototype_style.css">
 	<link rel="stylesheet" type="text/css" href="css/jqueryui_style.css">
+	<link rel="stylesheet" type="text/css" href="jquery-ui-layout-plugin/layout-default-latest.css">
 	<script type="text/javascript" src="js/jqueryuiController.js"></script>
+	<script type="text/javascript" src="jquery-ui-layout-plugin/jquery.layout-latest.js"></script>
+	
 </head>
 <body>
 	<header>
@@ -25,17 +28,10 @@
 			<li class="nav-entry-prot"><a href="../wcDocker/wcDocker.html">wcDocker</a></li>
 		</ul>
 	</header>
-
-	<div id="left" class="panelholder">
-		<div class="panel">testpanel-left</div>
-	</div>
-	
-	<div id="center" class="panelholder">
-		<div class="panel">testpanel-center</div>
-	</div>
-	
-	<div id="right" class="panelholder">
-		<div class="panel">testpanel-right</div>
+	<div id="container">
+		<div class="ui-layout-center">Center</div>
+		<div class="ui-layout-west">West</div>
+		<div class="ui-layout-east">East</div>
 	</div>
 </body>
 </html>
