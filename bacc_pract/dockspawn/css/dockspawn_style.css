@@ -2,3 +2,12 @@ body {
 	margin: 0;
 }
 
+#values ul li{
+	padding:0.8em 0 0 1em;
+}
+
+input{
+	font-family:Arial;
+}
+
+
