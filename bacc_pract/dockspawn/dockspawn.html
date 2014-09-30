@@ -15,6 +15,11 @@
 	<link rel="stylesheet" type="text/css" href="../prototype_style.css">
 	<script src="js/dockspawnController.js" type="text/javascript"></script>
 	<script src="../js/scatterplot.js" type="text/javascript"></script>
+	<script src="../js/barchart.js" type="text/javascript"></script>
+	<link rel="stylesheet" type="text/css" href="../prototype_style.css">
+	<link rel="stylesheet" type="text/css" href="../css/scatterplot_style.css">
+	<link rel="stylesheet" type="text/css" href="../css/barchart_style.css">
+	
 </head>
 <body>
 	<header>
@@ -28,80 +33,7 @@
 		</ul>
 	</header>
 	<div id="dockManager"></div>
-	<div id="values" caption="Values">
-		<ul>
-			<li>
-				<label for="value1">Value 1:</label>
-				<div id="value1">
-					<input type="number" class="values" name="values" value="50" id="value1x">
-					<input type="number" class="values" name="values" value="50" id="value1y">
-				</div>
-			</li>
-			<li>
-				<label for="value2">Value 2:</label>
-				<div id="value2">
-					<input type="number" class="values" name="values" value="90" id="value2x">
-					<input type="number" class="values" name="values" value="80" id="value2y">
-				</div>
-			</li>
-			<li>
-				<label for="value3">Value 3:</label>
-				<div id="value3">
-					<input type="number" class="values" name="values" value="190" id="value3x">
-					<input type="number" class="values" name="values" value="130" id="value3y">
-				</div>
-			</li>
-			<li>
-				<label for="value4">Value 4:</label>
-				<div id="value4">
-					<input type="number" class="values" name="values" value="260" id="value4x">
-					<input type="number" class="values" name="values" value="180" id="value4y">
-				</div>
-			</li>
-			<li>
-				<label for="value5">Value 5:</label>
-				<div id="value5">
-					<input type="number" class="values" name="values" value="310" id="value5x">
-					<input type="number" class="values" name="values" value="160" id="value5y">
-				</div>
-			</li>
-			<li>
-				<label for="value6">Value 6:</label>
-				<div id="value6">
-					<input type="number" class="values" name="values" value="390" id="value6x">
-					<input type="number" class="values" name="values" value="210" id="value6y">
-				</div>
-			</li>
-			<li>
-				<label for="value7">Value 7:</label>
-				<div id="value7">
-					<input type="number" class="values" name="values" value="460" id="value7x">
-					<input type="number" class="values" name="values" value="250" id="value7y">
-				</div>
-			</li>
-			<li>
-				<label for="value8">Value 8:</label>
-				<div id="value8">
-					<input type="number" class="values" name="values" value="500" id="value8x">
-					<input type="number" class="values" name="values" value="280" id="value8y">
-				</div>
-			</li>
-			<li>
-				<label for="value9">Value 9:</label>
-				<div id="value9">
-					<input type="number" class="values" name="values" value="560" id="value9x">
-					<input type="number" class="values" name="values" value="310" id="value9y">
-				</div>
-			</li>
-			<li>
-				<label for="value10">Value 10:</label>
-				<div id="value10">
-					<input type="number" class="values" name="values" value="670" id="value10x">
-					<input type="number" class="values" name="values" value="350" id="value10y">
-				</div>
-			</li>
-		<ul>
-	</div>
+	<div id="values" caption="Values"><div id="barchart"></div></div>
 	<div id="scatterplot" caption="Scatterplot"><div id="vis"></div></div>
 	<div id="output" caption="Output"></div>
 	<div id="console" caption="Console">

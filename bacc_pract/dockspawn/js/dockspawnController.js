@@ -26,9 +26,11 @@ window.onload = function() {
 	var outputNode = dockManager.dockRight(scatterplotNode,output,0.15);
 
 	//updating dataset and scatterplot depending on input values
-	var w = $('#scatterplot').width()-50;
-	var h = $('#scatterplot').height()-50;
-	$('.values').change(function(){
+	var wSP = $('#scatterplot').width()-50;
+	var hSP = $('#scatterplot').height()-50;
+	var wBC = $('#barchart').width();
+	var hBC = $('#values').height();
+	/*$('.values').change(function(){
 		var tmp = [];
 		$('.values').each(function(){
 			tmp.push($(this).val());
@@ -44,16 +46,17 @@ window.onload = function() {
 		}
 		$('#vis').empty();
 		refreshScatterPlot(w,h);		
-	});
+	});*/
 	
 	//workaround for panels under the visualization (resizing of svg element in vis element)
 	$(window).mouseup(function(){
 		$('#vis').empty();
-		w = $('#scatterplot').width()-50;
-		h = $('#scatterplot').height()-50;
-		refreshScatterPlot(w,h);
+		wSP = $('#scatterplot').width()-50;
+		hSP = $('#scatterplot').height()-50;
+		refreshScatterPlot(wSP,hSP);
 	});	
-	refreshScatterPlot(w,h);
+	refreshScatterPlot(wSP,hSP);
+	refreshBarChart(wBC,hBC);
 }
 
 			  

@@ -15,6 +15,10 @@
 	<link rel="stylesheet" type="text/css" href="jquery-ui-layout-plugin/layout-default-latest.css">
 	<script type="text/javascript" src="jquery-ui-layout-plugin/jquery.layout-latest.js"></script>
 	<script type="text/javascript" src="js/jqueryuiController.js"></script>
+	<script src="../js/scatterplot.js" type="text/javascript"></script>
+	<script src="../js/barchart.js" type="text/javascript"></script>
+	<link rel="stylesheet" type="text/css" href="../css/scatterplot_style.css">
+	<link rel="stylesheet" type="text/css" href="../css/barchart_style.css">
 	
 </head>
 <body>
@@ -29,11 +33,23 @@
 		</ul>
 	</header>
 	<div id="container">	
-		<div class="outer-west">Values</div>
+		<div class="outer-west">
+			<div class="header">Values</div>
+			<div id="barchart"></div>
+		</div>
 		<div class="outer-center">
-			<div class="inner-center">Scatterplot</div>
-			<div class="inner-east">Output</div>
-			<div class="inner-south">Console<button class="toggle-outer-west"></div>
+			<div class="inner-center">
+				<div class="header">Scatterplot</div>
+				<div id="vis"></div>
+			</div>
+			<div class="inner-east">
+				<div class="header">Output</div>
+				<div id="output"></div>
+			</div>
+			<div class="inner-south">
+				<div class="header">Console</div>
+				<button class="toggle-outer-west">
+			</div>
 		</div>	
 	</div>
 </body>

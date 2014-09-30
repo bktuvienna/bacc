@@ -2,19 +2,29 @@ var myLayout;
 
 $(document).ready(function(){
 	var height=$(window).height() - $('header').height();
-	console.log(height + ", "+$.layout.language);
 	$('#container').height(height);
 	
 	myLayout = $('#container').layout({
+		applyDefaultStyles:true,
 		center__paneSelector:".outer-center",
 		west__paneSelector:".outer-west",
 		center__childOptions: {
+			applyDefaultStyles:true,
 			center__paneSelector:".inner-center",
 			east__paneSelector:".inner-east",
 			south__paneSelector:".inner-south",
-		}	
+		}
 	});
 	myLayout.addToggleBtn(".toggle-outer-west","west");
+	
+	var wSP=$('.inner-center').width()-50;
+	var hSP=$('.inner-center').height()-100;//-$('.inner-center .header').height();
+	var wBC=$('.outer-west').width()-10;
+	var hBC=$('.outer-west').height()-50;
+	refreshScatterPlot(wSP,hSP);
+	refreshBarChart(wBC,hBC);
+	
+	
 });
 
 

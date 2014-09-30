@@ -1,20 +1,22 @@
 //Adapted sources for D3 scatterplot:
 //http://alignedleft.com/tutorials/d3/making-a-scatterplot, http://bl.ocks.org/weiglemc/6185069
 var dataset = [
-                  [ 50,    50, "value1" ],
-                  [ 90,    80, "value2" ],
-                  [ 190,  130, "value3" ],
-                  [ 260,  180, "value4" ],
-                  [ 310,  160, "value5" ],
-                  [ 390,  210, "value6" ],
-                  [ 460,  250, "value7" ],
-                  [ 500,  280, "value8" ],
-                  [ 560,  310, "value9" ],
-                  [ 670,  350, "value10" ]
+                  [ 670,  350, "value1" ],
+                  [ 560,  310, "value2" ],
+                  [ 500,  280, "value3" ],
+                  [ 460,  250, "value4" ],
+                  [ 390,  210, "value5" ],
+                  [ 310,  160, "value6" ],
+                  [ 260,  180, "value7" ],
+                  [ 190,  130, "value8" ],
+                  [ 150,    80, "value9" ],
+                  [ 120,    50, "value10" ]
               ];
-
+var $prevClicked=null;
 //updates scatterplot and draws initial scatterplot
 var refreshScatterPlot = function(w,h){
+	
+
 	
 	var xValue = function(d){return d[0];},
 		xScale = d3.scale.linear().range([0,w]),
@@ -69,13 +71,24 @@ var refreshScatterPlot = function(w,h){
 	.attr("cy", function(d) {
 		return d[1];
 	})
+	.attr("class",function(d){return d[2]})
 	.attr("r", 5)
 	.style("fill",function(d){return color(cValue(d));})
-	.on("mouseover",function(d){
+	.on('mousedown',function(d){
+		if($prevClicked!=null){
+			
+		}	
+		$prevClicked=d3.select("."+zValue(d));
+		$('#output').append("<div style='color:"+color(cValue(d))+"'>"+zValue(d)+" :"+xValue(d) + "/"+yValue(d)+"</div>");
+		$('.'+zValue(d)).animate({
+			
+		})
+	});
+	/*.on("mouseover",function(d){
 		$('#output').append("<div style='color:"+color(cValue(d))+"'>"+zValue(d)+" :"+xValue(d) + "/"+yValue(d)+"</div>");
 		$('#'+zValue(d)).css({'background-color':color(cValue(d)),'transition-duration':'0.5s'});
 	})
 	.on("mouseout",function(d){
 		$('#'+zValue(d)).css('background-color','white');
-	});
+	});*/
 }	

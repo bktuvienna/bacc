@@ -15,5 +15,12 @@ $(document).ready(function(){
 		'enableWindowResize','window1'
 	);
 	
-
+	//updating dataset and scatterplot depending on input values
+	var wSP = $('#scatterplot').width()-50;
+	var hSP = $('#scatterplot').height()-50;
+	var wBC = $('#barchart').width();
+	var hBC = $('#barchart').height();
+	
+	refreshScatterPlot(wSP,hSP);
+	refreshBarChart(wBC,hBC);
 });

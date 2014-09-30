@@ -1,0 +1,13 @@
+#barchart{
+	padding-top:20px;
+}
+
+#barchart text {
+  fill: white;
+  font: 10px sans-serif;
+  text-anchor: middle;
+}
+
+
+
+
