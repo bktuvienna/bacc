@@ -24,10 +24,10 @@ $(document).ready(function() {
 			myPanel.initSize(400,350);
 		});
 		
-		var panel1 = myDocker.addPanel('Scatterplot',wcDocker.DOCK_BOTTOM, false);
-		var panel3 = myDocker.addPanel('Output',wcDocker.DOCK_RIGHT, false);
-		var panel2 = myDocker.addPanel('Console',wcDocker.DOCK_BOTTOM, false);		
-		var panel4 = myDocker.addPanel('Values',wcDocker.DOCK_LEFT, false);
+		var panel1 = myDocker.addPanel('Scatterplot',wcDocker.DOCK_BOTTOM);
+		var panel3 = myDocker.addPanel('Output',wcDocker.DOCK_RIGHT);
+		var panel2 = myDocker.addPanel('Console',wcDocker.DOCK_BOTTOM);		
+		var panel4 = myDocker.addPanel('Values',wcDocker.DOCK_LEFT);
 		
 		 myDocker.basicMenu('.testMenu', [
 			{name: 'customMenu1', callback: function(key, opts, panel){alert(key);}},

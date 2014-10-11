@@ -30,23 +30,19 @@ window.onload = function() {
 	var hSP = $('#scatterplot').height()-50;
 	var wBC = $('#barchart').width();
 	var hBC = $('#values').height();
-	/*$('.values').change(function(){
-		var tmp = [];
-		$('.values').each(function(){
-			tmp.push($(this).val());
-		});		
-		dataset=[];
-		for(var i=0, l=tmp.length;i<l;i++){
-			var data=[];
-			for(var j=0;j<2;j++){
-				data.push(tmp[i+j]);
-				i=i+j;
-			}
-			dataset.push(data);
-		}
-		$('#vis').empty();
-		refreshScatterPlot(w,h);		
-	});*/
+	
+	var json = null;
+	
+	$("#savestate").on('click',function(){
+		json = dockManager.saveState();	
+	});
+	
+	$("#loadstate").on('click',function(){
+		if(json!="")
+			dockManager.loadState(json);
+		else
+			alert("You have to save a state before loading!");
+	});
 	
 	//workaround for panels under the visualization (resizing of svg element in vis element)
 	$(window).mouseup(function(){
