@@ -14,10 +14,7 @@ var dataset = [
               ];
 var $prevClicked=null;
 //updates scatterplot and draws initial scatterplot
-var refreshScatterPlot = function(w,h){
-	
-
-	
+var refreshScatterPlot = function(w,h){	
 	var xValue = function(d){return d[0];},
 		xScale = d3.scale.linear().range([0,w]),
 		xMap = function(d){return xScale(xValue(d));},
@@ -73,8 +70,8 @@ var refreshScatterPlot = function(w,h){
 	})
 	.attr("class",function(d){return d[2]})
 	.attr("r", 5)
-	.style("fill",function(d){return color(cValue(d));})
-	.on('mousedown',function(d){
+	.style("fill",function(d){return color(cValue(d));});
+	/*.on('mousedown',function(d){
 		if($prevClicked!=null){
 			
 		}	
@@ -84,7 +81,7 @@ var refreshScatterPlot = function(w,h){
 			
 		})
 	});
-	/*.on("mouseover",function(d){
+	.on("mouseover",function(d){
 		$('#output').append("<div style='color:"+color(cValue(d))+"'>"+zValue(d)+" :"+xValue(d) + "/"+yValue(d)+"</div>");
 		$('#'+zValue(d)).css({'background-color':color(cValue(d)),'transition-duration':'0.5s'});
 	})
