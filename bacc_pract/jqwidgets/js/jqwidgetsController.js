@@ -23,4 +23,5 @@ $(document).ready(function(){
 	
 	refreshScatterPlot(wSP,hSP);
 	refreshBarChart(wBC,hBC);
+	refreshValueTable();
 });

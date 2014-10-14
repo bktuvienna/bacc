@@ -26,9 +26,9 @@ var header = '\
  * Web Cabin Docker - Docking Layout Interface.\n\
  *\n\
  * Dependancies:\n\
- *  JQuery 2.1.1\n\
- *\n\
- * Version: git-master\n\
+ *  JQuery 1.11.1\n\
+ *  JQuery-contextMenu 1.6.6\n\
+ *  font-awesome 4.2.0\n\
  *\n\
  * Author: Jeff Houde (Lochemage@gmail.com)\n\
  * Web: http://docker.webcabin.org/\n\
@@ -63,8 +63,9 @@ concat({
     '../Code/panel.js',
     '../Code/frame.js',
     '../Code/splitter.js',
-    '../Code/ext/jquery.contextMenu.js',
-    '../Code/ext/jquery.ui.position.js',
+    '../Code/tabframe.js',
+    // '../bower_components/jQuery-contextMenu/src/jquery.contextMenu.js',
+    // '../bower_components/jQuery-contextMenu/src/jquery.ui.position.js',
   ],
   dest: '../Build/wcDocker.js',
 });
@@ -72,9 +73,23 @@ concat({
 concat({
   src: [
     '../Code/style.css',
-    '../Code/ext/jquery.contextMenu.css',
+    // '../bower_components/jQuery-contextMenu/src/jquery.contextMenu.css',
   ],
   dest: '../Build/wcDocker.css',
+});
+
+// Move the un-minified version to the build folder.
+concat({
+  src: [
+    '../Themes/bigRed.css',
+  ],
+  dest: '../Build/Themes/bigRed.css',
+});
+concat({
+  src: [
+    '../Themes/shadow.css',
+  ],
+  dest: '../Build/Themes/shadow.css',
 });
 
 

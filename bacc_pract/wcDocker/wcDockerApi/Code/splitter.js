@@ -1,18 +1,20 @@
 /*
   Splits an area in two, dividing it with a resize splitter bar
 */
-function wcSplitter($container, parent, isHorizontal) {
-  this.$container = $container;
+function wcSplitter(container, parent, orientation) {
+  this.$container = $(container);
   this._parent = parent;
-  this._horizontal = isHorizontal;
+  this._orientation = orientation;
 
   this._pane = [false, false];
   this.$pane = [];
-  this.$bar;
-  this._pos = 0.4;
+  this.$bar = null;
+  this._pos = 0.5;
   this._findBestPos = false;
 
   this.__init();
+
+  this.docker()._splitterList.push(this);
 };
 
 wcSplitter.prototype = {
@@ -20,9 +22,52 @@ wcSplitter.prototype = {
 // Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Whether the splitter splits horizontally.
-  isHorizontal: function() {
-    return this._horizontal;
+  // Initializes the splitter with its own layouts.
+  initLayouts: function() {
+    var layout0 = new wcLayout(this.$pane[0], this);
+    var layout1 = new wcLayout(this.$pane[1], this);
+    this.pane(0, layout0);
+    this.pane(1, layout1);
+  },
+
+  // Finds the main Docker window.
+  docker: function() {
+    var parent = this._parent;
+    while (parent && !(parent instanceof wcDocker)) {
+      parent = parent._parent;
+    }
+    return parent;
+  },
+
+  // Update the contents of the splitter.
+  update: function() {
+    this.__update();
+  },
+
+  // Gets, or Sets the orientation of the splitter.
+  orientation: function(value) {
+    if (typeof value === 'undefined') {
+      return this._orientation;
+    }
+
+    if (this._orientation != value) {
+      this._orientation = value;
+
+      if (this._orientation) {
+        this.$pane[0].removeClass('wcWide').addClass('wcTall');
+        this.$pane[1].removeClass('wcWide').addClass('wcTall');
+        this.$bar.removeClass('wcWide').removeClass('wcSplitterBarH').addClass('wcTall').addClass('wcSplitterBarV');
+      } else {
+        this.$pane[0].removeClass('wcTall').addClass('wcWide');
+        this.$pane[1].removeClass('wcTall').addClass('wcWide');
+        this.$bar.removeClass('wcTall').removeClass('wcSplitterBarV').addClass('wcWide').addClass('wcSplitterBarH');
+      }
+
+      this.$pane[0].css('top', '').css('left', '').css('width', '').css('height', '');
+      this.$pane[1].css('top', '').css('left', '').css('width', '').css('height', '');
+      this.$bar.css('top', '').css('left', '').css('width', '').css('height', '');
+      this.__update();
+    }
   },
 
   // Gets the minimum size of the widget.
@@ -38,7 +83,7 @@ wcSplitter.prototype = {
     }
 
     if (minSize1 && minSize2) {
-      if (this._horizontal) {
+      if (this._orientation) {
         minSize1.x += minSize2.x;
         minSize1.y = Math.max(minSize1.y, minSize2.y);
       } else {
@@ -72,7 +117,7 @@ wcSplitter.prototype = {
     }
 
     if (maxSize1 && maxSize2) {
-      if (this._horizontal) {
+      if (this._orientation) {
         maxSize1.x += maxSize2.x;
         maxSize1.y = Math.min(maxSize1.y, maxSize2.y);
       } else {
@@ -95,24 +140,26 @@ wcSplitter.prototype = {
 
   // Get, or Set a splitter position.
   // Params:
-  //    pos           If supplied, assigns a new splitter percentage (0-1).
+  //    value         If supplied, assigns a new splitter percentage (0-1).
   // Returns:
   //    number        The current position.
-  pos: function(pos) {
-    if (typeof pos === 'undefined') {
+  pos: function(value) {
+    if (typeof value === 'undefined') {
       return this._pos;
     }
-    this._pos = pos;
+    this._pos = value;
+    this.__update();
     return this._pos;
   },
 
   // Sets, or Gets the widget at a given pane
   // Params:
-  //    index     The pane index, only 0 or 1 are valid.
-  //    item      If supplied, assigns the item to the pane.
+  //    index       The pane index, only 0 or 1 are valid.
+  //    item        If supplied, assigns the item to the pane.
   // Returns:
-  //    panel     The panel that exists in the pane.
-  //    false     If no pane exists.
+  //    wcPanel     The panel that exists in the pane.
+  //    wcSplitter  
+  //    false       If no pane exists.
   pane: function(index, item) {
     if (index >= 0 && index < 2) {
       if (typeof item === 'undefined') {
@@ -122,6 +169,10 @@ wcSplitter.prototype = {
           this._pane[index] = item;
           item._parent = this;
           item.__container(this.$pane[index]);
+
+          if (this._pane[0] && this._pane[1]) {
+            this.__update();
+          }
           return item;
         } else if (this._pane[index]) {
           this._pane[index].__container(null);
@@ -129,7 +180,44 @@ wcSplitter.prototype = {
         }
       }
     }
+    this.__update();
     return false;
+  },
+
+  // Toggles whether a pane can contain scroll bars.
+  // By default, scrolling is enabled.
+  // Params:
+  //    index     The pane index, only 0 or 1 are valid.
+  //    x         Whether to allow scrolling in the horizontal direction.
+  //    y         Whether to allow scrolling in the vertical direction.
+  scrollable: function(index, x, y) {
+    if (typeof x !== 'undefined') {
+      this.$pane[index].toggleClass('wcScrollableX', x);
+    }
+    if (typeof y !== 'undefined') {
+      this.$pane[index].toggleClass('wcScrollableY', y);
+    }
+
+    return {
+      x: this.$pane[index].hasClass('wcScrollableX'),
+      y: this.$pane[index].hasClass('wcScrollableY'),
+    };
+  },
+
+  // Destroys the splitter.
+  // Params:
+  //    destroyPanes    If true, or omitted, both panes attached will be destroyed as well.
+  destroy: function(destroyPanes) {
+    var index = this.docker()._splitterList.indexOf(this);
+    if (index > -1) {
+      this.docker()._splitterList.splice(index, 1);
+    }
+
+    if (typeof destroyPanes === 'undefined' || destroyPanes) {
+      this.__destroy();
+    } else {
+      this.__container(null);
+    }
   },
 
 
@@ -139,11 +227,11 @@ wcSplitter.prototype = {
 
   // Initialize
   __init: function() {
-    this.$pane.push($('<div class="wcLayoutPane">'));
-    this.$pane.push($('<div class="wcLayoutPane">'));
+    this.$pane.push($('<div class="wcLayoutPane wcScrollableX wcScrollableY">'));
+    this.$pane.push($('<div class="wcLayoutPane wcScrollableX wcScrollableY">'));
     this.$bar = $('<div class="wcSplitterBar">');
 
-    if (this._horizontal) {
+    if (this._orientation) {
       this.$pane[0].addClass('wcTall');
       this.$pane[1].addClass('wcTall');
       this.$bar.addClass('wcTall').addClass('wcSplitterBarV');
@@ -195,7 +283,7 @@ wcSplitter.prototype = {
       }
 
       if (size) {
-        if (this._horizontal) {
+        if (this._orientation) {
           this._pos = size.x / width;
         } else {
           this._pos = size.y / height;
@@ -203,7 +291,7 @@ wcSplitter.prototype = {
       }
     }
 
-    if (this._horizontal) {
+    if (this._orientation) {
       var size = width * this._pos;
 
       if (minSize) {
@@ -213,8 +301,8 @@ wcSplitter.prototype = {
         size = Math.min(maxSize.x, size);
       }
 
-      this.$bar.css('left', size+1);
-      this.$pane[0].css('width', size-1 + 'px');
+      this.$bar.css('left', size+2);
+      this.$pane[0].css('width', size + 'px');
       this.$pane[0].css('left',  '0px');
       this.$pane[0].css('right', '');
       this.$pane[1].css('left',  '');
@@ -230,8 +318,8 @@ wcSplitter.prototype = {
         size = Math.min(maxSize.y, size);
       }
 
-      this.$bar.css('top', size+1);
-      this.$pane[0].css('height', size-1 + 'px');
+      this.$bar.css('top', size+2);
+      this.$pane[0].css('height', size + 'px');
       this.$pane[0].css('top',    '0px');
       this.$pane[0].css('bottom', '');
       this.$pane[1].css('top',    '');
@@ -239,8 +327,12 @@ wcSplitter.prototype = {
       this.$pane[1].css('height', height - size - 5 + 'px');
     }
 
-    this._pane[0].__update();
-    this._pane[1].__update();
+    if (this._pane[0]) {
+      this._pane[0].__update();
+    }
+    if (this._pane[1]) {
+      this._pane[1].__update();
+    }
   },
 
   // Saves the current panel configuration into a meta
@@ -248,7 +340,7 @@ wcSplitter.prototype = {
   __save: function() {
     var data = {};
     data.type       = 'wcSplitter';
-    data.horizontal = this._horizontal;
+    data.horizontal = this._orientation;
     data.pane0      = this._pane[0]? this._pane[0].__save(): null;
     data.pane1      = this._pane[1]? this._pane[1].__save(): null;
     data.pos        = this._pos;
@@ -288,7 +380,7 @@ wcSplitter.prototype = {
     var minSize = this.__minPos();
     var maxSize = this.__maxPos();
 
-    if (this._horizontal) {
+    if (this._orientation) {
       this.pos((mouse.x-3) / width);
     } else {
       this.pos((mouse.y-3) / height);

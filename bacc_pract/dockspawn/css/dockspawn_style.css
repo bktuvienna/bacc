@@ -11,23 +11,6 @@ input{
 	font-family:Arial;
 }
 
-table{
-	border-collapse:collapse;
-	width:100%;
-}
-
-th{
-	font-weight:bold;
-}
-
-table,td,tr,th{
-	padding:2px;
-	border:1px solid black;
-}
-
-td,tr{
-	opacity:0.6;
-}
 
 
 

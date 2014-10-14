@@ -2,14 +2,23 @@
   The public interface for the docking panel, it contains a layout that can be filled with custom
   elements and a number of convenience functions for use.
 */
-function wcPanel(type) {
+function wcPanel(type, options) {
   this.$container = null;
   this._parent = null;
+  this.$icon = null;
+
+  if (options.icon) {
+    this.icon(options.icon);
+  }
+  if (options.faicon) {
+    this.faicon(options.faicon);
+  }
 
   this._panelObject = null;
 
   this._type = type;
   this._title = type;
+  this._titleVisible = true;
 
   this._layout = null;
 
@@ -71,6 +80,7 @@ function wcPanel(type) {
   this._moveable = true;
   this._closeable = true;
   this._resizeVisible = true;
+  this._isVisible = false;
 
   this._events = {};
 
@@ -94,7 +104,11 @@ wcPanel.prototype = {
   // Gets, or Sets the title for this dock widget.
   title: function(title) {
     if (typeof title !== 'undefined') {
-      this._title = title;
+      if (title === false) {
+        this._titleVisible = false;
+      } else {
+        this._title = title;
+      }
     }
     return this._title;
   },
@@ -111,25 +125,43 @@ wcPanel.prototype = {
     var docker = this.docker();
     if (docker) {
       docker.__focus(this._parent, flash);
+      for (var i = 0; i < this._parent._panelList.length; ++i) {
+        if (this._parent._panelList[i] === this) {
+          this._parent.panel(i);
+          break;
+        }
+      }
     }
+  },
+
+  // Retrieves whether this panel is within view.
+  isVisible: function() {
+    return this._isVisible;
   },
 
   // Creates a new custom button that will appear in the title bar of the panel.
   // Params:
-  //    name          The name of the button, to identify it.
-  //    className     A class name to apply to the button.
-  //    text          Text to apply to the button.
-  //    tip           Tooltip text.
-  //    isTogglable   If true, will make the button toggle on and off per click.
-  addButton: function(name, className, text, tip, isTogglable) {
+  //    name              The name of the button, to identify it.
+  //    className         A class name to apply to the button.
+  //    text              Text to apply to the button.
+  //    tip               Tooltip text.
+  //    isTogglable       If true, will make the button toggle on and off per click.
+  //    toggleClassName   If this button is toggleable, you can designate an
+  //                      optional class name that will replace the original class name.
+  addButton: function(name, className, text, tip, isTogglable, toggleClassName) {
     this._buttonList.push({
       name: name,
       className: className,
+      toggleClassName: toggleClassName,
       text: text,
       tip: tip,
       isTogglable: isTogglable,
       isToggled: false,
     });
+
+    if (this._parent instanceof wcFrame) {
+      this._parent.__update();
+    }
 
     return this._buttonList.length-1;
   },
@@ -144,6 +176,11 @@ wcPanel.prototype = {
         if (this._parent instanceof wcFrame) {
           this._parent.__onTabChange();
         }
+
+        if (this._parent instanceof wcFrame) {
+          this._parent.__update();
+        }
+
         return true;
       }
     }
@@ -165,6 +202,10 @@ wcPanel.prototype = {
           if (this._parent instanceof wcFrame) {
             this._parent.__onTabChange();
           }
+        }
+
+        if (this._parent instanceof wcFrame) {
+          this._parent.__update();
         }
 
         return this._buttonList[i].isToggled;
@@ -209,6 +250,28 @@ wcPanel.prototype = {
     }
     this._maxSize.x = x;
     this._maxSize.y = y;
+  },
+
+  // Sets the icon for the panel, shown in the panels tab widget.
+  // Must be a css class name that contains the image.
+  icon: function(icon) {
+    if (!this.$icon) {
+      this.$icon = $('<div>');
+    }
+
+    this.$icon.removeClass();
+    this.$icon.addClass('wcTabIcon ' + icon);
+  },
+
+  // Sets the icon for the panel, shown in the panels tab widget,
+  // to an icon defined from the font-awesome library.
+  faicon: function(icon) {
+    if (!this.$icon) {
+      this.$icon = $('<div>');
+    }
+
+    this.$icon.removeClass();
+    this.$icon.addClass('fa fa-fw fa-' + icon);
   },
 
   // Gets, or Sets the scroll position of the window (if it is scrollable).
@@ -439,6 +502,14 @@ wcPanel.prototype = {
     } else {
       this._moveData.timeout = false;
       this.__trigger(wcDocker.EVENT_MOVE_ENDED);
+    }
+  },
+
+  __isVisible: function(inView) {
+    if (this._isVisible !== inView) {
+      this._isVisible = inView;
+
+      this.__trigger(wcDocker.EVENT_VISIBILITY_CHANGED);
     }
   },
 

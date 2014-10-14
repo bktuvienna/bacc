@@ -1,0 +1,17 @@
+#valuetable{
+	border-collapse:collapse;
+	width:100%;
+}
+
+#valuetable th{
+	font-weight:bold;
+}
+
+#valuetable,#valuetable td,#valuetable tr,#valuetable th{
+	padding:2px;
+	border:1px solid black;
+}
+
+#valuetable td,#valuetable tr{
+	opacity:0.6;
+}

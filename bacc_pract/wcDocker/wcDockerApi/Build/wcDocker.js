@@ -3,8 +3,8 @@
  *
  * Dependancies:
  *  JQuery 1.11.1
- *
- * Version: git-master
+ *  JQuery-contextMenu 1.6.6
+ *  font-awesome 4.2.0
  *
  * Author: Jeff Houde (Lochemage@gmail.com)
  * Web: http://docker.webcabin.org/
@@ -14,7 +14,6 @@
  *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
-
 
 // Provide backward compatibility for IE8 and other such older browsers.
 if (!Function.prototype.bind) {
@@ -71,19 +70,24 @@ if (!Array.prototype.indexOf)
 
   options allows overriding default options for docker. The current fields are:
     allowContextMenu: boolean (default true) - Create the right click menu for adding/removing panels.
+    hideOnResize: boolean (default false) - If true, panels will hide their content as they are being resized.
 */
-function wcDocker(container,options) {
+function wcDocker(container, options) {
   this.$container = $(container).addClass('wcDocker');
   this.$transition = $('<div class="wcDockerTransition"></div>');
   this.$container.append(this.$transition);
+  this.$modalBlocker = null;
 
   this._events = {};
 
   this._root = null;
   this._frameList = [];
   this._floatingList = [];
+  this._modalList = [];
+  this._focusFrame = null;
 
   this._splitterList = [];
+  this._tabList = [];
 
   this._dockPanelTypeList = [];
 
@@ -91,6 +95,7 @@ function wcDocker(container,options) {
   this._draggingFrame = null;
   this._draggingFrameSizer = null;
   this._draggingFrameTab = null;
+  this._draggingCustomTabFrame = null;
   this._ghost = null;
   this._menuTimer = 0;
 
@@ -115,26 +120,40 @@ function wcDocker(container,options) {
   this.__init();
 };
 
-wcDocker.DOCK_FLOAT             = 'float';
-wcDocker.DOCK_TOP               = 'top';
-wcDocker.DOCK_LEFT              = 'left';
-wcDocker.DOCK_RIGHT             = 'right';
-wcDocker.DOCK_BOTTOM            = 'bottom';
+// Docking positions.
+wcDocker.DOCK_MODAL                 = 'modal';
+wcDocker.DOCK_FLOAT                 = 'float';
+wcDocker.DOCK_TOP                   = 'top';
+wcDocker.DOCK_LEFT                  = 'left';
+wcDocker.DOCK_RIGHT                 = 'right';
+wcDocker.DOCK_BOTTOM                = 'bottom';
 
-wcDocker.EVENT_UPDATED          = 'panelUpdated';
-wcDocker.EVENT_CLOSED           = 'panelClosed';
-wcDocker.EVENT_BUTTON           = 'panelButton';
-wcDocker.EVENT_ATTACHED         = 'panelAttached';
-wcDocker.EVENT_DETACHED         = 'panelDetached';
-wcDocker.EVENT_MOVE_STARTED     = 'panelMoveStarted';
-wcDocker.EVENT_MOVE_ENDED       = 'panelMoveEnded';
-wcDocker.EVENT_MOVED            = 'panelMoved';
-wcDocker.EVENT_RESIZE_STARTED   = 'panelResizeStarted';
-wcDocker.EVENT_RESIZE_ENDED     = 'panelResizeEnded';
-wcDocker.EVENT_RESIZED          = 'panelResized';
-wcDocker.EVENT_SCROLLED         = 'panelScrolled';
-wcDocker.EVENT_SAVE_LAYOUT      = 'layoutSave';
-wcDocker.EVENT_RESTORE_LAYOUT   = 'layoutRestore';
+// Internal events.
+wcDocker.EVENT_UPDATED              = 'panelUpdated';
+wcDocker.EVENT_VISIBILITY_CHANGED   = 'panelVisibilityChanged';
+wcDocker.EVENT_BEGIN_DOCK           = 'panelBeginDock';
+wcDocker.EVENT_END_DOCK             = 'panelEndDock';
+wcDocker.EVENT_GAIN_FOCUS           = 'panelGainFocus';
+wcDocker.EVENT_LOST_FOCUS           = 'panelLostFocus';
+wcDocker.EVENT_CLOSED               = 'panelClosed';
+wcDocker.EVENT_BUTTON               = 'panelButton';
+wcDocker.EVENT_ATTACHED             = 'panelAttached';
+wcDocker.EVENT_DETACHED             = 'panelDetached';
+wcDocker.EVENT_MOVE_STARTED         = 'panelMoveStarted';
+wcDocker.EVENT_MOVE_ENDED           = 'panelMoveEnded';
+wcDocker.EVENT_MOVED                = 'panelMoved';
+wcDocker.EVENT_RESIZE_STARTED       = 'panelResizeStarted';
+wcDocker.EVENT_RESIZE_ENDED         = 'panelResizeEnded';
+wcDocker.EVENT_RESIZED              = 'panelResized';
+wcDocker.EVENT_SCROLLED             = 'panelScrolled';
+wcDocker.EVENT_SAVE_LAYOUT          = 'layoutSave';
+wcDocker.EVENT_RESTORE_LAYOUT       = 'layoutRestore';
+wcDocker.EVENT_CUSTOM_TAB_CHANGED   = 'customTabChanged';
+wcDocker.EVENT_CUSTOM_TAB_CLOSED    = 'customTabClosed';
+
+// Used for the splitter bar orientation.
+wcDocker.ORIENTATION_HORIZONTAL     = false;
+wcDocker.ORIENTATION_VERTICAL       = true;
 
 wcDocker.prototype = {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +163,8 @@ wcDocker.prototype = {
   // Registers a new docking panel type to be used later.
   // Params:
   //    name          The name for this new type.
+  //    options       An optional object that defines various options
+  //                  to initialize the panel with.
   //    createFunc    The function that populates the contents of
   //                  a newly created dock panel of this type.
   //                  Params:
@@ -153,7 +174,23 @@ wcDocker.prototype = {
   // Returns:
   //    true        The new type has been added successfully.
   //    false       Failure, the type name already exists.
-  registerPanelType: function(name, createFunc, isPrivate) {
+  registerPanelType: function(name, optionsOrCreateFunc, isPrivate) {
+
+    var options = optionsOrCreateFunc;
+    if (typeof options === 'function') {
+      options = {
+        onCreate: optionsOrCreateFunc,
+      };
+    }
+
+    if (typeof isPrivate != 'undefined') {
+      options.isPrivate = isPrivate;
+    }
+
+    if ($.isEmptyObject(options)) {
+      options = null;
+    }
+
     for (var i = 0; i < this._dockPanelTypeList.length; ++i) {
       if (this._dockPanelTypeList[i].name === name) {
         return false;
@@ -162,8 +199,7 @@ wcDocker.prototype = {
 
     this._dockPanelTypeList.push({
       name: name,
-      create: createFunc,
-      isPrivate: isPrivate,
+      options: options,
     });
 
     var $menu = $('menu').find('menu');
@@ -175,7 +211,7 @@ wcDocker.prototype = {
   // Params:
   //    typeName      The type of panel to create.
   //    location      The location to 'try' docking at, as defined by
-  //                  wcGLOBALS.DOCK_LOC enum.
+  //                  wcDocker.DOCK_ values.
   //    allowGroup    True to allow this panel to be tab grouped with
   //                  another already existing panel at that location.
   //                  If, for any reason, the panel can not fit at the
@@ -188,12 +224,12 @@ wcDocker.prototype = {
   addPanel: function(typeName, location, allowGroup, parentPanel) {
     for (var i = 0; i < this._dockPanelTypeList.length; ++i) {
       if (this._dockPanelTypeList[i].name === typeName) {
-        var panel = new wcPanel(typeName);
+        var panel = new wcPanel(typeName, this._dockPanelTypeList[i].options);
         panel._parent = this;
         panel.__container(this.$transition);
-        panel._panelObject = new this._dockPanelTypeList[i].create(panel);
+        panel._panelObject = new this._dockPanelTypeList[i].options.onCreate(panel);
 
-        if (allowGroup) {
+        if (allowGroup && location !== wcDocker.DOCK_MODAL) {
           this.__addPanelGrouped(panel, location, parentPanel);
         } else {
           this.__addPanelAlone(panel, location, parentPanel);
@@ -235,6 +271,15 @@ wcDocker.prototype = {
         if (index !== -1) {
           this._frameList.splice(index, 1);
         }
+        index = this._modalList.indexOf(parentFrame);
+        if (index !== -1) {
+          this._modalList.splice(index, 1);
+
+          if (!this._modalList.length && this.$modalBlocker) {
+            this.$modalBlocker.remove();
+            this.$modalBlocker = null;
+          }
+        }
 
         var parentSplitter = parentFrame._parent;
         if (parentSplitter instanceof wcSplitter) {
@@ -250,7 +295,7 @@ wcDocker.prototype = {
           }
 
           // Keep the panel in a hidden transition container so as to not
-          // __destroy any event handlers that may be on it.
+          // destroy any event handlers that may be on it.
           other.__container(this.$transition);
           other._parent = null;
 
@@ -279,6 +324,10 @@ wcDocker.prototype = {
         } else if (parentFrame === this._root) {
           this._root = null;
         }
+
+        if (this._focusFrame === parentFrame) {
+          this._focusFrame = null;
+        }
         parentFrame.__destroy();
       }
       panel.__destroy();
@@ -291,7 +340,7 @@ wcDocker.prototype = {
   // Params:
   //    panel         The panel to move.
   //    location      The location to 'try' docking at, as defined by
-  //                  wcGLOBALS.DOCK_LOC enum.
+  //                  wcDocker.DOCK_ values.
   //    allowGroup    True to allow this panel to be tab groupped with
   //                  another already existing panel at that location.
   //                  If, for any reason, the panel can not fit at the
@@ -314,14 +363,13 @@ wcDocker.prototype = {
     var width  = $elem.width();
     var height = $elem.height();
 
+    var parentFrame = panel._parent;
     var floating = false;
-    if (panel._parent instanceof wcFrame) {
-      floating = panel._parent._isFloating;
+    if (parentFrame instanceof wcFrame) {
+      floating = parentFrame._isFloating;
     }
 
-    var parentFrame = panel._parent;
     if (parentFrame instanceof wcFrame) {
-
       // Remove the panel from the frame.
       for (var i = 0; i < parentFrame._panelList.length; ++i) {
         if (parentFrame._panelList[i] === panel) {
@@ -330,7 +378,7 @@ wcDocker.prototype = {
           }
 
           // Keep the panel in a hidden transition container so as to not
-          // __destroy any event handlers that may be on it.
+          // destroy any event handlers that may be on it.
           panel.__container(this.$transition);
           panel._parent = null;
 
@@ -370,7 +418,7 @@ wcDocker.prototype = {
           }
 
           // Keep the item in a hidden transition container so as to not
-          // __destroy any event handlers that may be on it.
+          // destroy any event handlers that may be on it.
           other.__container(this.$transition);
           other._parent = null;
 
@@ -397,31 +445,38 @@ wcDocker.prototype = {
           }
           this.__update();
         }
+
+        if (this._focusFrame === parentFrame) {
+          this._focusFrame = null;
+        }
+
         parentFrame.__destroy();
       }
     }
 
     panel.initSize(width, height);
-    if (allowGroup) {
+    if (allowGroup && location !== wcDocker.DOCK_MODAL) {
       this.__addPanelGrouped(panel, location, parentPanel);
     } else {
       this.__addPanelAlone(panel, location, parentPanel);
     }
 
     var frame = panel._parent;
-    if (frame instanceof wcFrame && frame.panel() === panel) {
-      frame.pos(offset.left + width/2 + 20, offset.top + height/2 + 20, true);
+    if (frame instanceof wcFrame) {
+      if (frame._panelList.length === 1) {
+        frame.pos(offset.left + width/2 + 20, offset.top + height/2 + 20, true);
+      }
 
       if (floating !== frame._isFloating) {
         if (frame._isFloating) {
-          panel.trigger(wcDocker.EVENT_DETACHED);
+          panel.__trigger(wcDocker.EVENT_DETACHED);
         } else {
-          panel.trigger(wcDocker.EVENT_ATTACHED);
+          panel.__trigger(wcDocker.EVENT_ATTACHED);
         }
       }
     }
 
-    panel.trigger(wcDocker.EVENT_MOVED);
+    panel.__trigger(wcDocker.EVENT_MOVED);
 
     this.__update();
     return panel;
@@ -526,126 +581,164 @@ wcDocker.prototype = {
   // http://medialize.github.io/jQuery-contextMenu/docs.html
   // for more information.
   // Params:
-  //    selector        A JQuery selector string that designates the
-  //                    elements who use this menu.
-  //    itemList        An array with each context menu item in it, each item
-  //                    is an object {name:string, callback:function(key, opts, panel)}.
-  //    includeDefault  If true, all default panel menu options will also be shown.
-  basicMenu: function(selector, itemList, includeDefault) {
+  //    selector              A JQuery selector string that designates the
+  //                          elements who use this menu.
+  //    itemListOrBuildFunc   An array with each context menu item in it, each item
+  //                          is an object {name:string, callback:function(key, opts, panel)}.
+  //                          This can also be a function that dynamically builds and
+  //                          returns the item list, parameters given are the $trigger object
+  //                          of the menu and the menu event object.
+  //    includeDefault        If true, all default panel menu options will also be shown.
+  basicMenu: function(selector, itemListOrBuildFunc, includeDefault) {
     var self = this;
-    var finalItems = {};
-    for (var i = 0; i < itemList.length; ++i) {
-      var callback = itemList[i].callback;
+    $.contextMenu({
+      selector: selector,
+      build: function($trigger, event) {
+        var myFrame;
+        for (var i = 0; i < self._frameList.length; ++i) {
+          var $frame = $trigger.hasClass('wcFrame') && $trigger || $trigger.parents('.wcFrame');
+          if (self._frameList[i].$frame[0] === $frame[0]) {
+            myFrame = self._frameList[i];
+            break;
+          }
+        }
 
-      (function(listItem, callback) {
-        listItem.callback = function(key, opts) {
-          var panel = null;
-          var $frame = opts.$trigger.parents('.wcFrame').first();
-          if ($frame.length) {
-            for (var a = 0; a < self._frameList.length; ++a) {
-              if ($frame[0] === self._frameList[a].$frame[0]) {
-                panel = self._frameList[a].panel();
+        var mouse = {
+          x: event.clientX,
+          y: event.clientY,
+        };
+        var isTitle = false;
+        if (mouse.y - myFrame.$frame.offset().top <= 20) {
+          isTitle = true;
+        }
+
+        var windowTypes = {};
+        for (var i = 0; i < self._dockPanelTypeList.length; ++i) {
+          var type = self._dockPanelTypeList[i];
+          if (!type.options.isPrivate) {
+            if (type.options.limit > 0) {
+              if (self.findPanels(type.name).length >= type.options.limit) {
+                continue;
               }
             }
-          }
-
-          callback(key, opts, panel);
-        };
-      })(itemList[i], callback);
-      finalItems[itemList[i].name] = itemList[i];
-    }
-
-    if (!includeDefault) {
-      $.contextMenu({
-        selector: selector,
-        animation: {duration: 250, show: 'fadeIn', hide: 'fadeOut'},
-        reposition: false,
-        autoHide: true,
-        zIndex: 200,
-        items: finalItems,
-      });
-    } else {
-      $.contextMenu({
-        selector: selector,
-        build: function($trigger, event) {
-          var myFrame;
-          for (var i = 0; i < self._frameList.length; ++i) {
-            var $frame = $trigger.parents('.wcFrame');
-            if (self._frameList[i].$frame[0] === $frame[0]) {
-              myFrame = self._frameList[i];
-              break;
+            var icon = null;
+            var faicon = null;
+            if (type.options) {
+              if (type.options.faicon) {
+                faicon = type.options.faicon;
+              }
+              if (type.options.icon) {
+                icon = type.options.icon;
+              }
             }
+            windowTypes[type.name] = {
+              name: type.name,
+              icon: icon,
+              faicon: faicon,
+              className: 'wcMenuCreatePanel',
+            };
+          }
+        }
+
+        var separatorIndex = 0;
+        var finalItems = {};
+        var itemList = itemListOrBuildFunc;
+        if (typeof itemListOrBuildFunc === 'function') {
+          itemList = itemListOrBuildFunc($trigger, event);
+        }
+
+        for (var i = 0; i < itemList.length; ++i) {
+          if ($.isEmptyObject(itemList[i])) {
+            finalItems['sep' + separatorIndex++] = "---------";
+            continue;
           }
 
-          var mouse = {
-            x: event.clientX,
-            y: event.clientY,
-          };
-          var isTitle = false;
-          if (mouse.y - myFrame.$frame.offset().top <= 20) {
-            isTitle = true;
-          }
+          var callback = itemList[i].callback;
+          if (callback) {
+            (function(listItem, callback) {
+              listItem.callback = function(key, opts) {
+                var panel = null;
+                var $frame = opts.$trigger.parents('.wcFrame').first();
+                if ($frame.length) {
+                  for (var a = 0; a < self._frameList.length; ++a) {
+                    if ($frame[0] === self._frameList[a].$frame[0]) {
+                      panel = self._frameList[a].panel();
+                    }
+                  }
+                }
 
-          var windowTypes = {};
-          for (var i = 0; i < self._dockPanelTypeList.length; ++i) {
-            var type = self._dockPanelTypeList[i];
-            if (!type.isPrivate) {
-              windowTypes[type.name] = {
-                name: type.name,
-                className: 'wcMenuCreatePanel',
+                callback(key, opts, panel);
               };
-            }
+            })(itemList[i], callback);
           }
+          finalItems[itemList[i].name] = itemList[i];
+        }
 
-          var items = finalItems;
-          items['sep0'] = "---------";
+        var items = finalItems;
+
+        if (includeDefault) {
+          if (!$.isEmptyObject(finalItems)) {
+            items['sep' + separatorIndex++] = "---------";
+          }
 
           if (isTitle) {
             items['Close Panel'] = {
               name: 'Close Tab',
+              faicon: 'close',
               disabled: !myFrame.panel().closeable() || self.__isLastPanel(myFrame.panel()),
             };
             if (!myFrame._isFloating) {
               items['Detach Panel'] = {
                 name: 'Detach Tab',
+                faicon: 'level-down',
                 disabled: !myFrame.panel().moveable() || self.__isLastPanel(myFrame.panel()),
               };
             }
 
-            items['sep1'] = "---------";
+            items['sep' + separatorIndex++] = "---------";
     
             items.fold1 = {
               name: 'Add Tab',
+              faicon: 'columns',
               items: windowTypes,
               disabled: !(!myFrame._isFloating && myFrame.panel().moveable()),
               className: 'wcMenuCreatePanel',
             };
-            items['sep2'] = "---------";
+            items['sep' + separatorIndex++] = "---------";
 
-            items['Flash Panel'] = {name: 'Flash Tab'};
+            items['Flash Panel'] = {
+              name: 'Flash Panel',
+              faicon: 'lightbulb-o',
+            };
           } else {
             items['Close Panel'] = {
               name: 'Close Panel',
+              faicon: 'close',
               disabled: !myFrame.panel().closeable() || self.__isLastPanel(myFrame.panel()),
             };
             if (!myFrame._isFloating) {
               items['Detach Panel'] = {
                 name: 'Detach Panel',
+                faicon: 'level-down',
                 disabled: !myFrame.panel().moveable() || self.__isLastPanel(myFrame.panel()),
               };
             }
 
-            items['sep1'] = "---------";
+            items['sep' + separatorIndex++] = "---------";
 
             items.fold1 = {
               name: 'Insert Panel',
+              faicon: 'columns',
               items: windowTypes,
               disabled: !(!myFrame._isFloating && myFrame.panel().moveable()),
               className: 'wcMenuCreatePanel',
             };
-            items['sep2'] = "---------";
+            items['sep' + separatorIndex++] = "---------";
 
-            items['Flash Panel'] = {name: 'Flash Panel'};
+            items['Flash Panel'] = {
+              name: 'Flash Panel',
+              faicon: 'lightbulb-o',
+            };
           }
 
           if (!myFrame._isFloating && myFrame.panel().moveable()) {
@@ -654,43 +747,90 @@ wcDocker.prototype = {
             myFrame.__checkAnchorDrop(mouse, false, self._ghost, true);
             self._ghost.$ghost.hide();
           }
+        }
 
-          return {
-            callback: function(key, options) {
-              if (key === 'Close Panel') {
-                setTimeout(function() {
-                  myFrame.panel().close();
-                }, 10);
-              } else if (key === 'Detach Panel') {
-                self.movePanel(myFrame.panel(), wcDocker.DOCK_FLOAT, false);
-              } else if (key === 'Flash Panel') {
-                self.__focus(myFrame, true);
-              } else {
-                if (myFrame && self._ghost) {
-                  var anchor = self._ghost.anchor();
-                  self.addPanel(key, anchor.loc, anchor.merge, myFrame.panel());
+        return {
+          callback: function(key, options) {
+            if (key === 'Close Panel') {
+              setTimeout(function() {
+                myFrame.panel().close();
+              }, 10);
+            } else if (key === 'Detach Panel') {
+              self.movePanel(myFrame.panel(), wcDocker.DOCK_FLOAT, false);
+            } else if (key === 'Flash Panel') {
+              self.__focus(myFrame, true);
+            } else {
+              if (myFrame && self._ghost) {
+                var anchor = self._ghost.anchor();
+                self.addPanel(key, anchor.loc, anchor.merge, myFrame.panel());
+              }
+            }
+          },
+          events: {
+            show: function(opt) {
+              (function(items){
+
+                // Whenever them menu is shown, we update and add the faicons.
+                // Grab all those menu items, and propogate a list with them.
+                var menuItems = {};
+                var options = opt.$menu.find('.context-menu-item');
+                for (var i = 0; i < options.length; ++i) {
+                  var $option = $(options[i]);
+                  var $span = $option.find('span');
+                  if ($span.length) {
+                    menuItems[$span[0].innerHTML] = $option;
+                  }
                 }
+
+                // function calls itself so that we get nice icons inside of menus as well.
+                (function recursiveIconAdd(items) {
+                  for(var it in items) {
+                    var item = items[it];
+                    var $menu = menuItems[item.name];
+
+                    if ($menu) {
+                      var $icon = $('<div class="wcMenuIcon">');
+                      $menu.prepend($icon);
+
+                      if (item.icon) {
+                        $icon.addClass(item.icon);
+                      }
+
+                      if (item.faicon) {
+                        $icon.addClass('fa fa-menu fa-' + item.faicon + ' fa-lg fa-fw');
+                      }
+
+                      // Custom submenu arrow.
+                      if ($menu.hasClass('context-menu-submenu')) {
+                        var $expander = $('<div class="wcMenuSubMenu fa fa-caret-right fa-lg">');
+                        $menu.append($expander);
+                      }
+                    }
+
+                    // Iterate through sub-menus.
+                    if (item.items) {
+                      recursiveIconAdd(item.items);
+                    }
+                  }
+                })(items);
+
+              })(items);
+            },
+            hide: function(opt) {
+              if (self._ghost) {
+                self._ghost.__destroy();
+                self._ghost = false;
               }
             },
-            events: {
-              show: function(opt) {
-              },
-              hide: function(opt) {
-                if (self._ghost) {
-                  self._ghost.__destroy();
-                  self._ghost = false;
-                }
-              },
-            },
-            animation: {duration: 250, show: 'fadeIn', hide: 'fadeOut'},
-            reposition: false,
-            autoHide: true,
-            zIndex: 200,
-            items: items,
-          };
-        },
-      });
-    }
+          },
+          animation: {duration: 250, show: 'fadeIn', hide: 'fadeOut'},
+          reposition: false,
+          autoHide: true,
+          zIndex: 200,
+          items: items,
+        };
+      },
+    });
   },
 
   // Bypasses the next context menu event.
@@ -788,128 +928,7 @@ wcDocker.prototype = {
     
     // Setup our context menus.
     if ( this._options.allowContextMenu ) {
-      $.contextMenu({
-        selector: '.wcFrame',
-        build: function($trigger, event) {
-          var myFrame;
-          for (var i = 0; i < self._frameList.length; ++i) {
-            if (self._frameList[i].$frame[0] === $trigger[0]) {
-              myFrame = self._frameList[i];
-              break;
-            }
-          }
-
-          var mouse = {
-            x: event.clientX,
-            y: event.clientY,
-          };
-          var isTitle = false;
-          if (mouse.y - myFrame.$frame.offset().top <= 20) {
-            isTitle = true;
-          }
-
-          var windowTypes = {};
-          for (var i = 0; i < self._dockPanelTypeList.length; ++i) {
-            var type = self._dockPanelTypeList[i];
-            if (!type.isPrivate) {
-              windowTypes[type.name] = {
-                name: type.name,
-                className: 'wcMenuCreatePanel',
-              };
-            }
-          }
-
-          var items = {};
-          if (isTitle) {
-            items['Close Panel'] = {
-              name: 'Close Tab',
-              disabled: !myFrame.panel().closeable() || self.__isLastPanel(myFrame.panel()),
-            };
-            if (!myFrame._isFloating) {
-              items['Detach Panel'] = {
-                name: 'Detach Tab',
-                disabled: !myFrame.panel().moveable() || self.__isLastPanel(myFrame.panel()),
-              };
-            }
-
-            items['sep1'] = "---------";
-    
-            items.fold1 = {
-              name: 'Add Tab',
-              items: windowTypes,
-              disabled: !(!myFrame._isFloating && myFrame.panel().moveable()),
-              className: 'wcMenuCreatePanel',
-            };
-            items['sep2'] = "---------";
-
-            items['Flash Panel'] = {name: 'Flash Tab'};
-          } else {
-            items['Close Panel'] = {
-              name: 'Close Panel',
-              disabled: !myFrame.panel().closeable() || self.__isLastPanel(myFrame.panel()),
-            };
-            if (!myFrame._isFloating) {
-              items['Detach Panel'] = {
-                name: 'Detach Panel',
-                disabled: !myFrame.panel().moveable() || self.__isLastPanel(myFrame.panel()),
-              };
-            }
-
-            items['sep1'] = "---------";
-
-            items.fold1 = {
-              name: 'Insert Panel',
-              items: windowTypes,
-              disabled: !(!myFrame._isFloating && myFrame.panel().moveable()),
-              className: 'wcMenuCreatePanel',
-            };
-            items['sep2'] = "---------";
-
-            items['Flash Panel'] = {name: 'Flash Panel'};
-          }
-
-          if (!myFrame._isFloating && myFrame.panel().moveable()) {
-            var rect = myFrame.__rect();
-            self._ghost = new wcGhost(rect, mouse);
-            myFrame.__checkAnchorDrop(mouse, false, self._ghost, true);
-            self._ghost.$ghost.hide();
-          }
-
-          return {
-            callback: function(key, options) {
-              if (key === 'Close Panel') {
-                setTimeout(function() {
-                  myFrame.panel().close();
-                }, 10);
-              } else if (key === 'Detach Panel') {
-                self.movePanel(myFrame.panel(), wcDocker.DOCK_FLOAT, false);
-              } else if (key === 'Flash Panel') {
-                self.__focus(myFrame, true);
-              } else {
-                if (myFrame && self._ghost) {
-                  var anchor = self._ghost.anchor();
-                  self.addPanel(key, anchor.loc, anchor.merge, myFrame.panel());
-                }
-              }
-            },
-            events: {
-              show: function(opt) {
-              },
-              hide: function(opt) {
-                if (self._ghost) {
-                  self._ghost.__destroy();
-                  self._ghost = false;
-                }
-              },
-            },
-            animation: {duration: 250, show: 'fadeIn', hide: 'fadeOut'},
-            reposition: false,
-            autoHide: true,
-            zIndex: 200,
-            items: items,
-          };
-        },
-      });
+      this.basicMenu('.wcFrame', [], true);
     }
 
     var contextTimer;
@@ -943,6 +962,12 @@ wcDocker.prototype = {
       }
     });
 
+    $('body').on('mousedown', '.wcModalBlocker', function(event) {
+      for (var i = 0; i < self._modalList.length; ++i) {
+        self._modalList[i].__focus(true);
+      }
+    });
+
     // On some browsers, clicking and dragging a tab will drag it's graphic around.
     // Here I am disabling this as it interferes with my own drag-drop.
     $('body').on('mousedown', '.wcPanelTab', function(event) {
@@ -950,13 +975,18 @@ wcDocker.prototype = {
       event.returnValue = false;
     });
 
-    $('body').on('selectstart', '.wcFrameTitle, .wcPanelTab', function(event) {
+    $('body').on('selectstart', '.wcFrameTitle, .wcPanelTab, .wcFrameButton', function(event) {
       event.preventDefault();
     });
 
     // Close button on frames should destroy those panels.
-    $('body').on('click', '.wcFrameTitle > .wcFrameButton', function() {
-      var frame;
+    $('body').on('mousedown', '.wcFrame > .wcFrameButton', function() {
+      self.$container.addClass('wcDisableSelection');
+    });
+
+    // Clicking on a panel frame button.
+    $('body').on('click', '.wcFrame > .wcFrameButton', function() {
+      self.$container.removeClass('wcDisableSelection');
       for (var i = 0; i < self._frameList.length; ++i) {
         var frame = self._frameList[i];
         if (frame.$close[0] === this) {
@@ -965,6 +995,20 @@ wcDocker.prototype = {
           self.__update();
           return;
         }
+        if (frame.$tabLeft[0] === this) {
+          frame._tabScrollPos-=frame.$title.width()/2;
+          if (frame._tabScrollPos < 0) {
+            frame._tabScrollPos = 0;
+          }
+          frame.__updateTabs();
+          return;
+        }
+        if (frame.$tabRight[0] === this) {
+          frame._tabScrollPos+=frame.$title.width()/2;
+          frame.__updateTabs();
+          return;
+        }
+
         for (var a = 0; a < frame._buttonList.length; ++a) {
           if (frame._buttonList[a][0] === this) {
             var $button = frame._buttonList[a];
@@ -989,6 +1033,33 @@ wcDocker.prototype = {
       }
     });
 
+    // Clicking on a custom tab button.
+    $('body').on('click', '.wcCustomTab > .wcFrameButton', function() {
+      self.$container.removeClass('wcDisableSelection');
+      for (var i = 0; i < self._tabList.length; ++i) {
+        var customTab = self._tabList[i];
+        if (customTab.$close[0] === this) {
+          var tabIndex = customTab.tab();
+          customTab.removeTab(tabIndex);
+          return;
+        }
+
+        if (customTab.$tabLeft[0] === this) {
+          customTab._tabScrollPos-=customTab.$title.width()/2;
+          if (customTab._tabScrollPos < 0) {
+            customTab._tabScrollPos = 0;
+          }
+          customTab.__updateTabs();
+          return;
+        }
+        if (customTab.$tabRight[0] === this) {
+          customTab._tabScrollPos+=customTab.$title.width()/2;
+          customTab.__updateTabs();
+          return;
+        }
+      }
+    });
+
     // Middle mouse button on a panel tab to close it.
     $('body').on('mouseup', '.wcPanelTab', function(event) {
       if (event.which !== 2) {
@@ -999,7 +1070,7 @@ wcDocker.prototype = {
 
       for (var i = 0; i < self._frameList.length; ++i) {
         var frame = self._frameList[i];
-        if (frame.$title[0] === $(this).parent()[0]) {
+        if (frame.$title[0] === $(this).parents('.wcFrameTitle')[0]) {
           var panel = frame._panelList[index];
           if (self._removingPanel === panel) {
             self.removePanel(panel);
@@ -1048,23 +1119,40 @@ wcDocker.prototype = {
           };
           self._draggingFrame.__anchorMove(mouse);
 
-          if ($(event.target).hasClass('wcPanelTab')) {
-            var index = parseInt($(event.target).attr('id'));
-            self._draggingFrame.panel(index);
-            
-            if (event.which === 2) {
-              self._draggingFrame = null;
-              return;
-            }
-            self._draggingFrameTab = event.target;
+          var $panelTab = $(event.target).hasClass('wcPanelTab')? $(event.target): $(event.target).parent('.wcPanelTab'); 
+          if ($panelTab && $panelTab.length) {
+            var index = parseInt($panelTab.attr('id'));
+            self._draggingFrame.panel(index, true);
+
+            // if (event.which === 2) {
+            //   self._draggingFrame = null;
+            //   return;
+            // }
+
+            self._draggingFrameTab = $panelTab[0];
           }
 
           // If the window is able to be docked, give it a dark shadow tint and
           // begin the movement process
-          if (!self._draggingFrame._isFloating || event.which !== 1 || self._draggingFrameTab) {
+          if ((!self._draggingFrame.$title.hasClass('wcNotMoveable') && !$panelTab.hasClass('wcNotMoveable')) &&
+          (!self._draggingFrame._isFloating || event.which !== 1 || self._draggingFrameTab)) {
             var rect = self._draggingFrame.__rect();
             self._ghost = new wcGhost(rect, mouse);
             self._draggingFrame.__checkAnchorDrop(mouse, true, self._ghost, true);
+            self.trigger(wcDocker.EVENT_BEGIN_DOCK);
+          }
+          break;
+        }
+      }
+      for (var i = 0; i < self._tabList.length; ++i) {
+        if (self._tabList[i].$title[0] == this) {
+          self._draggingCustomTabFrame = self._tabList[i];
+
+          var $panelTab = $(event.target).hasClass('wcPanelTab')? $(event.target): $(event.target).parent('.wcPanelTab');
+          if ($panelTab && $panelTab.length) {
+            var index = parseInt($panelTab.attr('id'));
+            self._draggingCustomTabFrame.tab(index, true);
+            self._draggingFrameTab = $panelTab[0];
           }
           break;
         }
@@ -1082,7 +1170,9 @@ wcDocker.prototype = {
       }
       for (var i = 0; i < self._frameList.length; ++i) {
         if (self._frameList[i].panel().layout().$elem[0] == this) {
-          self.__focus(self._frameList[i]);
+          setTimeout(function() {
+            self.__focus(self._frameList[i]);
+          }, 10);
           break;
         }
       }
@@ -1191,14 +1281,19 @@ wcDocker.prototype = {
             self._ghost.anchor(mouse, null);
           } else {
             self._draggingFrame.__shadow(false);
-            if (self._draggingFrameTab && $(event.target).hasClass('wcPanelTab') &&
-                self._draggingFrameTab !== event.target) {
-              self._draggingFrameTab = self._draggingFrame.__tabMove(parseInt($(self._draggingFrameTab).attr('id')), parseInt($(event.target).attr('id')));
+            var $hoverTab = $(event.target).hasClass('wcPanelTab')? $(event.target): $(event.target).parent('.wcPanelTab');
+            if (self._draggingFrameTab && $hoverTab && $hoverTab.length && self._draggingFrameTab !== event.target) {
+              self._draggingFrameTab = self._draggingFrame.__tabMove(parseInt($(self._draggingFrameTab).attr('id')), parseInt($hoverTab.attr('id')));
             }
           }
         } else if (!self._draggingFrameTab) {
           self._draggingFrame.__move(mouse);
           self._draggingFrame.__update();
+        }
+      } else if (self._draggingCustomTabFrame) {
+        var $hoverTab = $(event.target).hasClass('wcPanelTab')? $(event.target): $(event.target).parent('.wcPanelTab');
+        if (self._draggingFrameTab && $hoverTab && $hoverTab.length && self._draggingFrameTab !== event.target) {
+          self._draggingFrameTab = self._draggingCustomTabFrame.moveTab(parseInt($(self._draggingFrameTab).attr('id')), parseInt($hoverTab.attr('id')));
         }
       }
       return true;
@@ -1274,7 +1369,7 @@ wcDocker.prototype = {
             index = index + frame._panelList.length;
           }
           panel = self.movePanel(self._draggingFrame.panel(), anchor.loc, anchor.merge, panel);
-          panel._parent.panel(panel._parent._panelList.length-1);
+          panel._parent.panel(panel._parent._panelList.length-1, true);
           // Dragging the entire frame.
           if (!self._draggingFrameTab) {
             while (self._draggingFrame.panel())
@@ -1288,9 +1383,11 @@ wcDocker.prototype = {
         }
         self._ghost.__destroy();
         self._ghost = null;
+
+        self.trigger(wcDocker.EVENT_END_DOCK);
       }
 
-      if ( self._draggingSplitter ) {
+      if ( self._draggingSplitter ) { 
         self._draggingSplitter.$pane[0].removeClass('wcResizing');
         self._draggingSplitter.$pane[1].removeClass('wcResizing');
       }
@@ -1299,6 +1396,7 @@ wcDocker.prototype = {
       self._draggingFrame = null;
       self._draggingFrameSizer = null;
       self._draggingFrameTab = null;
+      self._draggingCustomTabFrame = null;
       self._removingPanel = null;
       return true;
     });
@@ -1313,7 +1411,7 @@ wcDocker.prototype = {
 
       for (var i = 0; i < self._frameList.length; ++i) {
         var frame = self._frameList[i];
-        if (frame.$title[0] === $(this).parent()[0]) {
+        if (frame.$title[0] === $(this).parents('.wcFrameTitle')[0]) {
           var panel = frame._panelList[index];
           self._removingPanel = panel;
           return;
@@ -1360,19 +1458,27 @@ wcDocker.prototype = {
   //    frame     The frame to focus.
   //    flash     Whether to flash the frame.
   __focus: function(frame, flash) {
-    if (frame._isFloating) {
-      // frame.$frame.remove();
-      var posList = [];
-      for (var i = 0; i < frame._panelList.length; ++i) {
-        posList.push(frame._panelList[i].scroll());
+    if (this._focusFrame) {
+      if (this._focusFrame._isFloating) {
+        this._focusFrame.$frame.removeClass('wcFloatingFocus');
+        if (this._focusFrame !== frame) {
+          $('body').append(this._focusFrame.$frame);
+        }
       }
-      $('body').append(frame.$frame);
-      for (var i = 0; i < posList.length; ++i) {
-        frame._panelList[i].scroll(posList[i].x, posList[i].y);
-      }
+
+      this._focusFrame.__trigger(wcDocker.EVENT_LOST_FOCUS);
+      this._focusFrame = null;
     }
 
-    frame.__focus(flash)
+    this._focusFrame = frame;
+    if (this._focusFrame) {
+      if (this._focusFrame._isFloating) {
+        this._focusFrame.$frame.addClass('wcFloatingFocus');
+      }
+      this._focusFrame.__focus(flash);
+
+      this._focusFrame.__trigger(wcDocker.EVENT_GAIN_FOCUS);
+    }
   },
 
   // Triggers an event exclusively on the docker and none of its panels.
@@ -1444,7 +1550,8 @@ wcDocker.prototype = {
     switch (data.type) {
       case 'wcSplitter':
         var splitter = new wcSplitter($container, parent, data.horizontal);
-        this._splitterList.push(splitter);
+        splitter.scrollable(0, false, false);
+        splitter.scrollable(1, false, false);
         return splitter;
 
       case 'wcFrame':
@@ -1456,12 +1563,12 @@ wcDocker.prototype = {
         return frame;
 
       case 'wcPanel':
-        var panel = new wcPanel(data.panelType);
-        panel._parent = parent;
-        panel.__container(this.$transition);
         for (var i = 0; i < this._dockPanelTypeList.length; ++i) {
           if (this._dockPanelTypeList[i].name === data.panelType) {
-            panel._panelObject = new this._dockPanelTypeList[i].create(panel);
+            var panel = new wcPanel(data.panelType, this._dockPanelTypeList[i].options);
+            panel._parent = parent;
+            panel.__container(this.$transition);
+            panel._panelObject = new this._dockPanelTypeList[i].options.onCreate(panel);
             panel.__container($container);
             break;
           }
@@ -1481,12 +1588,25 @@ wcDocker.prototype = {
   //                  new panel will split the center window.
   __addPanelAlone: function(panel, location, parentPanel) {
     // Floating windows need no placement.
-    if (location === wcDocker.DOCK_FLOAT) {
+    if (location === wcDocker.DOCK_FLOAT || location === wcDocker.DOCK_MODAL) {
       var frame = new wcFrame(this.$container, this, true);
       this._frameList.push(frame);
       this._floatingList.push(frame);
+      this.__focus(frame);
       frame.addPanel(panel);
       frame.pos(panel._pos.x, panel._pos.y, false);
+
+      if (location === wcDocker.DOCK_MODAL) {
+        if (!this.$modalBlocker) {
+          this.$modalBlocker = $('<div class="wcModalBlocker"></div>');
+          this.$container.append(this.$modalBlocker);
+        }
+
+        this.$modalBlocker.show();
+        panel.moveable(false);
+        frame.$frame.addClass('wcModal');
+        this._modalList.push(frame);
+      }
       return;
     }
 
@@ -1507,7 +1627,8 @@ wcDocker.prototype = {
           }
 
           if (splitter) {
-            this._splitterList.push(splitter);
+            splitter.scrollable(0, false, false);
+            splitter.scrollable(1, false, false);
             frame = new wcFrame(this.$transition, splitter, false);
             this._frameList.push(frame);
             if (location === wcDocker.DOCK_LEFT || location === wcDocker.DOCK_TOP) {
@@ -1536,8 +1657,9 @@ wcDocker.prototype = {
     } else {
       var splitter = new wcSplitter(this.$container, this, location !== wcDocker.DOCK_BOTTOM && location !== wcDocker.DOCK_TOP);
       if (splitter) {
-        this._splitterList.push(splitter);
         frame._parent = splitter;
+        splitter.scrollable(0, false, false);
+        splitter.scrollable(1, false, false);
 
         if (location === wcDocker.DOCK_LEFT || location === wcDocker.DOCK_TOP) {
           splitter.pane(0, frame);
@@ -1595,7 +1717,7 @@ wcDocker.prototype = {
         var right = item.pane(1);
 
         // Check if the orientation of the splitter is one that we want.
-        if (item.isHorizontal() === needsHorizontal) {
+        if (item.orientation() === needsHorizontal) {
           // Make sure the dock panel is on the proper side.
           if (left instanceof wcFrame && (location === wcDocker.DOCK_LEFT || location === wcDocker.DOCK_TOP)) {
             left.addPanel(panel);
@@ -2211,14 +2333,23 @@ wcLayout.prototype = {
   The public interface for the docking panel, it contains a layout that can be filled with custom
   elements and a number of convenience functions for use.
 */
-function wcPanel(type) {
+function wcPanel(type, options) {
   this.$container = null;
   this._parent = null;
+  this.$icon = null;
+
+  if (options.icon) {
+    this.icon(options.icon);
+  }
+  if (options.faicon) {
+    this.faicon(options.faicon);
+  }
 
   this._panelObject = null;
 
   this._type = type;
   this._title = type;
+  this._titleVisible = true;
 
   this._layout = null;
 
@@ -2280,6 +2411,7 @@ function wcPanel(type) {
   this._moveable = true;
   this._closeable = true;
   this._resizeVisible = true;
+  this._isVisible = false;
 
   this._events = {};
 
@@ -2303,7 +2435,11 @@ wcPanel.prototype = {
   // Gets, or Sets the title for this dock widget.
   title: function(title) {
     if (typeof title !== 'undefined') {
-      this._title = title;
+      if (title === false) {
+        this._titleVisible = false;
+      } else {
+        this._title = title;
+      }
     }
     return this._title;
   },
@@ -2320,25 +2456,43 @@ wcPanel.prototype = {
     var docker = this.docker();
     if (docker) {
       docker.__focus(this._parent, flash);
+      for (var i = 0; i < this._parent._panelList.length; ++i) {
+        if (this._parent._panelList[i] === this) {
+          this._parent.panel(i);
+          break;
+        }
+      }
     }
+  },
+
+  // Retrieves whether this panel is within view.
+  isVisible: function() {
+    return this._isVisible;
   },
 
   // Creates a new custom button that will appear in the title bar of the panel.
   // Params:
-  //    name          The name of the button, to identify it.
-  //    className     A class name to apply to the button.
-  //    text          Text to apply to the button.
-  //    tip           Tooltip text.
-  //    isTogglable   If true, will make the button toggle on and off per click.
-  addButton: function(name, className, text, tip, isTogglable) {
+  //    name              The name of the button, to identify it.
+  //    className         A class name to apply to the button.
+  //    text              Text to apply to the button.
+  //    tip               Tooltip text.
+  //    isTogglable       If true, will make the button toggle on and off per click.
+  //    toggleClassName   If this button is toggleable, you can designate an
+  //                      optional class name that will replace the original class name.
+  addButton: function(name, className, text, tip, isTogglable, toggleClassName) {
     this._buttonList.push({
       name: name,
       className: className,
+      toggleClassName: toggleClassName,
       text: text,
       tip: tip,
       isTogglable: isTogglable,
       isToggled: false,
     });
+
+    if (this._parent instanceof wcFrame) {
+      this._parent.__update();
+    }
 
     return this._buttonList.length-1;
   },
@@ -2353,6 +2507,11 @@ wcPanel.prototype = {
         if (this._parent instanceof wcFrame) {
           this._parent.__onTabChange();
         }
+
+        if (this._parent instanceof wcFrame) {
+          this._parent.__update();
+        }
+
         return true;
       }
     }
@@ -2374,6 +2533,10 @@ wcPanel.prototype = {
           if (this._parent instanceof wcFrame) {
             this._parent.__onTabChange();
           }
+        }
+
+        if (this._parent instanceof wcFrame) {
+          this._parent.__update();
         }
 
         return this._buttonList[i].isToggled;
@@ -2418,6 +2581,28 @@ wcPanel.prototype = {
     }
     this._maxSize.x = x;
     this._maxSize.y = y;
+  },
+
+  // Sets the icon for the panel, shown in the panels tab widget.
+  // Must be a css class name that contains the image.
+  icon: function(icon) {
+    if (!this.$icon) {
+      this.$icon = $('<div>');
+    }
+
+    this.$icon.removeClass();
+    this.$icon.addClass('wcTabIcon ' + icon);
+  },
+
+  // Sets the icon for the panel, shown in the panels tab widget,
+  // to an icon defined from the font-awesome library.
+  faicon: function(icon) {
+    if (!this.$icon) {
+      this.$icon = $('<div>');
+    }
+
+    this.$icon.removeClass();
+    this.$icon.addClass('fa fa-fw fa-' + icon);
   },
 
   // Gets, or Sets the scroll position of the window (if it is scrollable).
@@ -2651,6 +2836,14 @@ wcPanel.prototype = {
     }
   },
 
+  __isVisible: function(inView) {
+    if (this._isVisible !== inView) {
+      this._isVisible = inView;
+
+      this.__trigger(wcDocker.EVENT_VISIBILITY_CHANGED);
+    }
+  },
+
   // Saves the current panel configuration into a meta
   // object that can be used later to restore it.
   __save: function() {
@@ -2764,24 +2957,35 @@ function wcFrame(container, parent, isFloating) {
   this._parent = parent;
   this._isFloating = isFloating;
 
-  this.$frame   = null;
-  this.$title   = null;
-  this.$center  = null;
-  this.$close   = null;
-  this.$top     = null;
-  this.$bottom  = null;
-  this.$left    = null;
-  this.$right   = null;
-  this.$corner1 = null;
-  this.$corner2 = null;
-  this.$corner3 = null;
-  this.$corner4 = null;
+  this.$frame     = null;
+  this.$title     = null;
+  this.$tabScroll = null;
+  this.$center    = null;
+  this.$tabLeft   = null;
+  this.$tabRight  = null;
+  this.$close     = null;
+  this.$top       = null;
+  this.$bottom    = null;
+  this.$left      = null;
+  this.$right     = null;
+  this.$corner1   = null;
+  this.$corner2   = null;
+  this.$corner3   = null;
+  this.$corner4   = null;
 
-  this.$shadower = null;
+  this.$shadower  = null;
 
+  this._canScrollTabs = false;
+  this._tabScrollPos = 0;
   this._curTab = -1;
   this._panelList = [];
   this._buttonList = [];
+
+  this._resizeData = {
+    time: -1,
+    timeout: false,
+    delta: 150,
+  };
 
   this._pos = {
     x: 0.5,
@@ -2789,6 +2993,11 @@ function wcFrame(container, parent, isFloating) {
   };
 
   this._size = {
+    x: 400,
+    y: 400,
+  };
+
+  this._lastSize = {
     x: 400,
     y: 400,
   };
@@ -2802,6 +3011,8 @@ function wcFrame(container, parent, isFloating) {
 };
 
 wcFrame.prototype = {
+  LEFT_TAB_BUFFER: 15,
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2900,9 +3111,9 @@ wcFrame.prototype = {
 
     if (this._curTab === -1 && this._panelList.length) {
       this._curTab = 0;
+      this._size = this.initSize();
     }
 
-    this._size = this.initSize();
     this.__updateTabs();
   },
 
@@ -2939,15 +3150,15 @@ wcFrame.prototype = {
   //    tabIndex      If supplied, sets the current tab.
   // Returns:
   //    wcPanel       The currently visible panel.
-  panel: function(tabIndex) {
-    if (tabIndex !== 'undefined') {
+  panel: function(tabIndex, autoFocus) {
+    if (typeof tabIndex !== 'undefined') {
       if (tabIndex > -1 && tabIndex < this._panelList.length) {
-        this.$title.find('div[id="' + this._curTab + '"]').removeClass('wcPanelTabActive');
-        this.$center.find('.wcPanelTabContent[id="' + this._curTab + '"]').addClass('wcPanelTabContentHidden');
+        this.$title.find('> .wcTabScroller > .wcPanelTab[id="' + this._curTab + '"]').removeClass('wcPanelTabActive');
+        this.$center.children('.wcPanelTabContent[id="' + this._curTab + '"]').addClass('wcPanelTabContentHidden');
         this._curTab = tabIndex;
-        this.$title.find('div[id="' + tabIndex + '"]').addClass('wcPanelTabActive');
-        this.$center.find('.wcPanelTabContent[id="' + tabIndex + '"]').removeClass('wcPanelTabContentHidden');
-        this.__onTabChange();
+        this.$title.find('> .wcTabScroller > .wcPanelTab[id="' + tabIndex + '"]').addClass('wcPanelTabActive');
+        this.$center.children('.wcPanelTabContent[id="' + tabIndex + '"]').removeClass('wcPanelTabContentHidden');
+        this.__updateTabs(autoFocus);
       }
     }
 
@@ -2964,11 +3175,15 @@ wcFrame.prototype = {
 
   // Initialize
   __init: function() {
-    this.$frame   = $('<div class="wcFrame wcWide wcTall wcPanelBackground">');
-    this.$title   = $('<div class="wcFrameTitle">');
-    this.$center  = $('<div class="wcFrameCenter wcWide">');
-    this.$close   = $('<div class="wcFrameButton">X</div>');
+    this.$frame     = $('<div class="wcFrame wcWide wcTall wcPanelBackground">');
+    this.$title     = $('<div class="wcFrameTitle">');
+    this.$tabScroll = $('<div class="wcTabScroller">');
+    this.$center    = $('<div class="wcFrameCenter wcWide">');
+    this.$tabLeft   = $('<div class="wcFrameButton" title="Scroll tabs to the left."><span class="fa fa-arrow-left"></span>&lt;</div>');
+    this.$tabRight  = $('<div class="wcFrameButton" title="Scroll tabs to the right."><span class="fa fa-arrow-right"></span>&gt;</div>');
+    this.$close     = $('<div class="wcFrameButton" title="Close the currently active panel tab"><span class="fa fa-close"></span>X</div>');
     this.$frame.append(this.$title);
+    this.$title.append(this.$tabScroll);
     this.$frame.append(this.$close);
 
     if (this._isFloating) {
@@ -3035,7 +3250,37 @@ wcFrame.prototype = {
       this.$frame.css('height', this._size.y + 'px');
     }
 
+    if (width !== this._lastSize.x || height !== this._lastSize.y) {
+      this._lastSize.x = width;
+      this._lastSize.y = height;
+
+      this._resizeData.time = new Date();
+      if (!this._resizeData.timeout) {
+        this._resizeData.timeout = true;
+        setTimeout(this.__resizeEnd.bind(this), this._resizeData.delta);
+      }
+    }
+    // this.__updateTabs();
+    this.__onTabChange();
+  },
+
+  __resizeEnd: function() {
     this.__updateTabs();
+    if (new Date() - this._resizeData.time < this._resizeData.delta) {
+      setTimeout(this.__resizeEnd.bind(this), this._resizeData.delta);
+    } else {
+      this._resizeData.timeout = false;
+    }
+  },
+
+  // Triggers an event exclusively on the docker and none of its panels.
+  // Params:
+  //    eventName   The name of the event.
+  //    data        A custom data parameter to pass to all handlers.
+  __trigger: function(eventName, data) {
+    for (var i = 0; i < this._panelList.length; ++i) {
+      this._panelList[i].__trigger(eventName, data);
+    }
   },
 
   // Saves the current panel configuration into a meta
@@ -3044,6 +3289,7 @@ wcFrame.prototype = {
     var data = {};
     data.type = 'wcFrame';
     data.floating = this._isFloating;
+    data.isFocus = this.$frame.hasClass('wcFloatingFocus')
     data.pos = {
       x: this._pos.x,
       y: this._pos.y,
@@ -3077,38 +3323,162 @@ wcFrame.prototype = {
     }
 
     this.__update();
+
+    if (data.isFocus) {
+      this.$frame.addClass('wcFloatingFocus');
+    }
   },
 
-  __updateTabs: function() {
-    this.$title.empty();
+  __updateTabs: function(autoFocus) {
+    this.$tabScroll.empty();
 
     // Move all tabbed panels to a temporary element to preserve event handlers on them.
-    var $tempCenter = $('<div>');
-    this.$frame.append($tempCenter);
-    this.$center.children().appendTo($tempCenter);
+    // var $tempCenter = $('<div>');
+    // this.$frame.append($tempCenter);
+    // this.$center.children().appendTo($tempCenter);
 
+    var tabPositions = [];
+    var totalWidth = 0;
+    var parentLeft = this.$tabScroll.offset().left;
     var self = this;
+
+    this.$title.removeClass('wcNotMoveable');
+
+    this.$center.children('.wcPanelTabContent').each(function() {
+      $(this).addClass('wcPanelTabContentHidden wcPanelTabUnused');
+    });
+
+    var titleVisible = true;
+
     for (var i = 0; i < this._panelList.length; ++i) {
-      var $tab = $('<div id="' + i + '" class="wcPanelTab">' + this._panelList[i].title() + '</div>');
-      this.$title.append($tab);
+      var panel = this._panelList[i];
 
-      var $tabContent = $('<div class="wcPanelTabContent wcPanelBackground" id="' + i + '">');
-      this.$center.append($tabContent);
-      this._panelList[i].__container($tabContent);
-      this._panelList[i]._parent = this;
+      var $tab = $('<div id="' + i + '" class="wcPanelTab">' + panel.title() + '</div>');
+      this.$tabScroll.append($tab);
+      if (panel.$icon) {
+        $tab.prepend(panel.$icon);
+      }
 
-      if (this._curTab !== i) {
-        $tabContent.addClass('wcPanelTabContentHidden');
-      } else {
+      $tab.toggleClass('wcNotMoveable', !panel.moveable());
+      if (!panel.moveable()) {
+        this.$title.addClass('wcNotMoveable');
+      }
+
+      // 
+      if (!panel._titleVisible) {
+        titleVisible = false;
+      }
+
+      var $tabContent = this.$center.children('.wcPanelTabContent[id="' + i + '"]');
+      if (!$tabContent.length) {
+        $tabContent = $('<div class="wcPanelTabContent wcPanelBackground wcPanelTabContentHidden" id="' + i + '">');
+        this.$center.append($tabContent);
+      }
+
+      panel.__container($tabContent);
+      panel._parent = this;
+
+      var isVisible = this._curTab === i;
+      if (panel.isVisible() !== isVisible) {
+        (function(p, v) {
+          setTimeout(function() {
+            p.__isVisible(v);
+          });
+        })(panel, isVisible);
+      }
+
+      $tabContent.removeClass('wcPanelTabUnused');
+
+      if (isVisible) {
         $tab.addClass('wcPanelTabActive');
+        $tabContent.removeClass('wcPanelTabContentHidden');
+      }
+
+      totalWidth = $tab.offset().left - parentLeft;
+      tabPositions.push(totalWidth);
+
+      totalWidth += $tab.outerWidth();
+    }
+
+    if (titleVisible) {
+      if (!this.$frame.parent()) {
+        this.$frame.prepend(this.$title);
+        this.$center.css('top', '');
+      }
+    } else {
+      this.$title.remove();
+      this.$center.css('top', '0px');
+    }
+
+    // Now remove all unused panel tabs.
+    this.$center.children('.wcPanelTabUnused').each(function() {
+      $(this).remove();
+    });
+
+    // $tempCenter.remove();
+    var buttonSize = this.__onTabChange();
+
+    if (autoFocus) {
+      for (var i = 0; i < tabPositions.length; ++i) {
+        if (i === this._curTab) {
+          var left = tabPositions[i];
+          var right = totalWidth;
+          if (i+1 < tabPositions.length) {
+            right = tabPositions[i+1];
+          }
+
+          var scrollPos = -parseInt(this.$tabScroll.css('left'));
+          var titleWidth = this.$title.width() - buttonSize;
+
+          // If the tab is behind the current scroll position.
+          if (left < scrollPos) {
+            this._tabScrollPos = left - this.LEFT_TAB_BUFFER;
+            if (this._tabScrollPos < 0) {
+              this._tabScrollPos = 0;
+            }
+          }
+          // If the tab is beyond the current scroll position.
+          else if (right - scrollPos > titleWidth) {
+            this._tabScrollPos = right - titleWidth + this.LEFT_TAB_BUFFER;
+          }
+          break;
+        }
       }
     }
 
-    $tempCenter.remove();
-    this.__onTabChange();
+    this._canScrollTabs = false;
+    if (totalWidth > this.$title.width() - buttonSize) {
+      this._canScrollTabs = titleVisible;
+      this.$frame.append(this.$tabRight);
+      this.$frame.append(this.$tabLeft);
+      var scrollLimit = totalWidth - (this.$title.width() - buttonSize)/2;
+      // If we are beyond our scroll limit, clamp it.
+      if (this._tabScrollPos > scrollLimit) {
+        var children = this.$tabScroll.children();
+        for (var i = 0; i < children.length; ++i) {
+          var $tab = $(children[i]);
+
+          totalWidth = $tab.offset().left - parentLeft;
+          if (totalWidth + $tab.outerWidth() > scrollLimit) {
+            this._tabScrollPos = totalWidth - this.LEFT_TAB_BUFFER;
+            if (this._tabScrollPos < 0) {
+              this._tabScrollPos = 0;
+            }
+            break;
+          }
+        }
+      }
+    } else {
+      this._tabScrollPos = 0;
+      this.$tabLeft.remove();
+      this.$tabRight.remove();
+    }
+
+    this.$tabScroll.stop().animate({left: -this._tabScrollPos + 'px'}, 'fast');
   },
 
   __onTabChange: function() {
+    var buttonSize = 0;
     var panel = this.panel();
     if (panel) {
       var scrollable = panel.scrollable();
@@ -3118,20 +3488,16 @@ wcFrame.prototype = {
       var overflowVisible = panel.overflowVisible();
       this.$center.toggleClass('wcOverflowVisible', overflowVisible);
 
-      if (panel.moveable() && panel.title()) {
-        this.$frame.prepend(this.$title);
-        this.$center.css('top', '');
-      } else {
-        this.$title.remove();
-        this.$center.css('top', '0px');
-      }
+      this.$tabLeft.remove();
+      this.$tabRight.remove();
 
       while (this._buttonList.length) {
         this._buttonList.pop().remove();
       }
 
       if (panel.closeable()) {
-        this.$title.append(this.$close);
+        this.$frame.append(this.$close);
+        buttonSize += this.$close.outerWidth();
       } else {
         this.$close.remove();
       }
@@ -3139,23 +3505,33 @@ wcFrame.prototype = {
       for (var i = 0; i < panel._buttonList.length; ++i) {
         var buttonData = panel._buttonList[i];
         var $button = $('<div>');
+        var buttonClass = buttonData.className;
         $button.addClass('wcFrameButton');
         if (buttonData.isTogglable) {
           $button.addClass('wcFrameButtonToggler');
 
           if (buttonData.isToggled) {
             $button.addClass('wcFrameButtonToggled');
+            buttonClass = buttonData.toggleClassName || buttonClass;
           }
-        }
-        if (buttonData.className) {
-          $button.addClass(buttonData.className);
         }
         $button.attr('title', buttonData.tip);
         $button.data('name', buttonData.name);
         $button.text(buttonData.text);
+        if (buttonClass) {
+          $button.prepend($('<div class="' + buttonClass + '">'));
+        }
 
         this._buttonList.push($button);
-        this.$title.append($button);
+        this.$frame.append($button);
+        buttonSize += $button.outerWidth();
+      }
+
+      if (this._canScrollTabs) {
+        this.$frame.append(this.$tabRight);
+        this.$frame.append(this.$tabLeft);
+
+        buttonSize += this.$tabRight.outerWidth() + this.$tabLeft.outerWidth();
       }
 
       panel.__update();
@@ -3163,6 +3539,7 @@ wcFrame.prototype = {
       this.$center.scrollLeft(panel._scroll.x);
       this.$center.scrollTop(panel._scroll.y);
     }
+    return buttonSize;
   },
 
   // Handles scroll notifications.
@@ -3242,7 +3619,7 @@ wcFrame.prototype = {
 
       this.__updateTabs();
 
-      return this.$title.find('.wcPanelTab[id="' + toIndex + '"]')[0];
+      return this.$title.find('> .wcTabScroller > .wcPanelTab[id="' + toIndex + '"]')[0];
     }
     return false;
   },
@@ -3406,18 +3783,20 @@ wcFrame.prototype = {
 /*
   Splits an area in two, dividing it with a resize splitter bar
 */
-function wcSplitter($container, parent, isHorizontal) {
-  this.$container = $container;
+function wcSplitter(container, parent, orientation) {
+  this.$container = $(container);
   this._parent = parent;
-  this._horizontal = isHorizontal;
+  this._orientation = orientation;
 
   this._pane = [false, false];
   this.$pane = [];
-  this.$bar;
-  this._pos = 0.4;
+  this.$bar = null;
+  this._pos = 0.5;
   this._findBestPos = false;
 
   this.__init();
+
+  this.docker()._splitterList.push(this);
 };
 
 wcSplitter.prototype = {
@@ -3425,9 +3804,52 @@ wcSplitter.prototype = {
 // Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Whether the splitter splits horizontally.
-  isHorizontal: function() {
-    return this._horizontal;
+  // Initializes the splitter with its own layouts.
+  initLayouts: function() {
+    var layout0 = new wcLayout(this.$pane[0], this);
+    var layout1 = new wcLayout(this.$pane[1], this);
+    this.pane(0, layout0);
+    this.pane(1, layout1);
+  },
+
+  // Finds the main Docker window.
+  docker: function() {
+    var parent = this._parent;
+    while (parent && !(parent instanceof wcDocker)) {
+      parent = parent._parent;
+    }
+    return parent;
+  },
+
+  // Update the contents of the splitter.
+  update: function() {
+    this.__update();
+  },
+
+  // Gets, or Sets the orientation of the splitter.
+  orientation: function(value) {
+    if (typeof value === 'undefined') {
+      return this._orientation;
+    }
+
+    if (this._orientation != value) {
+      this._orientation = value;
+
+      if (this._orientation) {
+        this.$pane[0].removeClass('wcWide').addClass('wcTall');
+        this.$pane[1].removeClass('wcWide').addClass('wcTall');
+        this.$bar.removeClass('wcWide').removeClass('wcSplitterBarH').addClass('wcTall').addClass('wcSplitterBarV');
+      } else {
+        this.$pane[0].removeClass('wcTall').addClass('wcWide');
+        this.$pane[1].removeClass('wcTall').addClass('wcWide');
+        this.$bar.removeClass('wcTall').removeClass('wcSplitterBarV').addClass('wcWide').addClass('wcSplitterBarH');
+      }
+
+      this.$pane[0].css('top', '').css('left', '').css('width', '').css('height', '');
+      this.$pane[1].css('top', '').css('left', '').css('width', '').css('height', '');
+      this.$bar.css('top', '').css('left', '').css('width', '').css('height', '');
+      this.__update();
+    }
   },
 
   // Gets the minimum size of the widget.
@@ -3443,7 +3865,7 @@ wcSplitter.prototype = {
     }
 
     if (minSize1 && minSize2) {
-      if (this._horizontal) {
+      if (this._orientation) {
         minSize1.x += minSize2.x;
         minSize1.y = Math.max(minSize1.y, minSize2.y);
       } else {
@@ -3477,7 +3899,7 @@ wcSplitter.prototype = {
     }
 
     if (maxSize1 && maxSize2) {
-      if (this._horizontal) {
+      if (this._orientation) {
         maxSize1.x += maxSize2.x;
         maxSize1.y = Math.min(maxSize1.y, maxSize2.y);
       } else {
@@ -3500,24 +3922,26 @@ wcSplitter.prototype = {
 
   // Get, or Set a splitter position.
   // Params:
-  //    pos           If supplied, assigns a new splitter percentage (0-1).
+  //    value         If supplied, assigns a new splitter percentage (0-1).
   // Returns:
   //    number        The current position.
-  pos: function(pos) {
-    if (typeof pos === 'undefined') {
+  pos: function(value) {
+    if (typeof value === 'undefined') {
       return this._pos;
     }
-    this._pos = pos;
+    this._pos = value;
+    this.__update();
     return this._pos;
   },
 
   // Sets, or Gets the widget at a given pane
   // Params:
-  //    index     The pane index, only 0 or 1 are valid.
-  //    item      If supplied, assigns the item to the pane.
+  //    index       The pane index, only 0 or 1 are valid.
+  //    item        If supplied, assigns the item to the pane.
   // Returns:
-  //    panel     The panel that exists in the pane.
-  //    false     If no pane exists.
+  //    wcPanel     The panel that exists in the pane.
+  //    wcSplitter  
+  //    false       If no pane exists.
   pane: function(index, item) {
     if (index >= 0 && index < 2) {
       if (typeof item === 'undefined') {
@@ -3527,6 +3951,10 @@ wcSplitter.prototype = {
           this._pane[index] = item;
           item._parent = this;
           item.__container(this.$pane[index]);
+
+          if (this._pane[0] && this._pane[1]) {
+            this.__update();
+          }
           return item;
         } else if (this._pane[index]) {
           this._pane[index].__container(null);
@@ -3534,7 +3962,44 @@ wcSplitter.prototype = {
         }
       }
     }
+    this.__update();
     return false;
+  },
+
+  // Toggles whether a pane can contain scroll bars.
+  // By default, scrolling is enabled.
+  // Params:
+  //    index     The pane index, only 0 or 1 are valid.
+  //    x         Whether to allow scrolling in the horizontal direction.
+  //    y         Whether to allow scrolling in the vertical direction.
+  scrollable: function(index, x, y) {
+    if (typeof x !== 'undefined') {
+      this.$pane[index].toggleClass('wcScrollableX', x);
+    }
+    if (typeof y !== 'undefined') {
+      this.$pane[index].toggleClass('wcScrollableY', y);
+    }
+
+    return {
+      x: this.$pane[index].hasClass('wcScrollableX'),
+      y: this.$pane[index].hasClass('wcScrollableY'),
+    };
+  },
+
+  // Destroys the splitter.
+  // Params:
+  //    destroyPanes    If true, or omitted, both panes attached will be destroyed as well.
+  destroy: function(destroyPanes) {
+    var index = this.docker()._splitterList.indexOf(this);
+    if (index > -1) {
+      this.docker()._splitterList.splice(index, 1);
+    }
+
+    if (typeof destroyPanes === 'undefined' || destroyPanes) {
+      this.__destroy();
+    } else {
+      this.__container(null);
+    }
   },
 
 
@@ -3544,11 +4009,11 @@ wcSplitter.prototype = {
 
   // Initialize
   __init: function() {
-    this.$pane.push($('<div class="wcLayoutPane">'));
-    this.$pane.push($('<div class="wcLayoutPane">'));
+    this.$pane.push($('<div class="wcLayoutPane wcScrollableX wcScrollableY">'));
+    this.$pane.push($('<div class="wcLayoutPane wcScrollableX wcScrollableY">'));
     this.$bar = $('<div class="wcSplitterBar">');
 
-    if (this._horizontal) {
+    if (this._orientation) {
       this.$pane[0].addClass('wcTall');
       this.$pane[1].addClass('wcTall');
       this.$bar.addClass('wcTall').addClass('wcSplitterBarV');
@@ -3600,7 +4065,7 @@ wcSplitter.prototype = {
       }
 
       if (size) {
-        if (this._horizontal) {
+        if (this._orientation) {
           this._pos = size.x / width;
         } else {
           this._pos = size.y / height;
@@ -3608,7 +4073,7 @@ wcSplitter.prototype = {
       }
     }
 
-    if (this._horizontal) {
+    if (this._orientation) {
       var size = width * this._pos;
 
       if (minSize) {
@@ -3618,8 +4083,8 @@ wcSplitter.prototype = {
         size = Math.min(maxSize.x, size);
       }
 
-      this.$bar.css('left', size+1);
-      this.$pane[0].css('width', size-1 + 'px');
+      this.$bar.css('left', size+2);
+      this.$pane[0].css('width', size + 'px');
       this.$pane[0].css('left',  '0px');
       this.$pane[0].css('right', '');
       this.$pane[1].css('left',  '');
@@ -3635,8 +4100,8 @@ wcSplitter.prototype = {
         size = Math.min(maxSize.y, size);
       }
 
-      this.$bar.css('top', size+1);
-      this.$pane[0].css('height', size-1 + 'px');
+      this.$bar.css('top', size+2);
+      this.$pane[0].css('height', size + 'px');
       this.$pane[0].css('top',    '0px');
       this.$pane[0].css('bottom', '');
       this.$pane[1].css('top',    '');
@@ -3644,8 +4109,12 @@ wcSplitter.prototype = {
       this.$pane[1].css('height', height - size - 5 + 'px');
     }
 
-    this._pane[0].__update();
-    this._pane[1].__update();
+    if (this._pane[0]) {
+      this._pane[0].__update();
+    }
+    if (this._pane[1]) {
+      this._pane[1].__update();
+    }
   },
 
   // Saves the current panel configuration into a meta
@@ -3653,7 +4122,7 @@ wcSplitter.prototype = {
   __save: function() {
     var data = {};
     data.type       = 'wcSplitter';
-    data.horizontal = this._horizontal;
+    data.horizontal = this._orientation;
     data.pane0      = this._pane[0]? this._pane[0].__save(): null;
     data.pane1      = this._pane[1]? this._pane[1].__save(): null;
     data.pos        = this._pos;
@@ -3693,7 +4162,7 @@ wcSplitter.prototype = {
     var minSize = this.__minPos();
     var maxSize = this.__maxPos();
 
-    if (this._horizontal) {
+    if (this._orientation) {
       this.pos((mouse.x-3) / width);
     } else {
       this.pos((mouse.y-3) / height);
@@ -3811,2186 +4280,505 @@ wcSplitter.prototype = {
   },
 };
 /*
- * jQuery contextMenu - Plugin for simple contextMenu handling
- *
- * Version: git-master
- *
- * Authors: Rodney Rehm, Addy Osmani (patches for FF)
- * Web: http://medialize.github.com/jQuery-contextMenu/
- *
- * Licensed under
- *   MIT License http://www.opensource.org/licenses/mit-license
- *   GPL v3 http://opensource.org/licenses/GPL-3.0
- *
- */
-
-(function($, undefined){
-    
-    // TODO: -
-        // ARIA stuff: menuitem, menuitemcheckbox und menuitemradio
-        // create <menu> structure if $.support[htmlCommand || htmlMenuitem] and !opt.disableNative
-
-// determine html5 compatibility
-$.support.htmlMenuitem = ('HTMLMenuItemElement' in window);
-$.support.htmlCommand = ('HTMLCommandElement' in window);
-$.support.eventSelectstart = ("onselectstart" in document.documentElement);
-/* // should the need arise, test for css user-select
-$.support.cssUserSelect = (function(){
-    var t = false,
-        e = document.createElement('div');
-    
-    $.each('Moz|Webkit|Khtml|O|ms|Icab|'.split('|'), function(i, prefix) {
-        var propCC = prefix + (prefix ? 'U' : 'u') + 'serSelect',
-            prop = (prefix ? ('-' + prefix.toLowerCase() + '-') : '') + 'user-select';
-            
-        e.style.cssText = prop + ': text;';
-        if (e.style[propCC] == 'text') {
-            t = true;
-            return false;
-        }
-        
-        return true;
-    });
-    
-    return t;
-})();
+  A tab widget container, to break up multiple elements into separate tabs.
 */
+function wcTabFrame(container, parent) {
+  this.$container = $(container);
+  this._parent = parent;
 
-if (!$.ui || !$.ui.widget) {
-    // duck punch $.cleanData like jQueryUI does to get that remove event
-    // https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L16-24
-    var _cleanData = $.cleanData;
-    $.cleanData = function( elems ) {
-        for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
-            try {
-                $( elem ).triggerHandler( "remove" );
-                // http://bugs.jquery.com/ticket/8235
-            } catch( e ) {}
-        }
-        _cleanData( elems );
-    };
-}
+  this.$frame     = null;
+  this.$title     = null;
+  this.$tabScroll = null;
+  this.$center    = null;
+  this.$tabLeft   = null;
+  this.$tabRight  = null;
+  this.$close     = null;
 
-var // currently active contextMenu trigger
-    $currentTrigger = null,
-    // is contextMenu initialized with at least one menu?
-    initialized = false,
-    // window handle
-    $win = $(window),
-    // number of registered menus
-    counter = 0,
-    // mapping selector to namespace
-    namespaces = {},
-    // mapping namespace to options
-    menus = {},
-    // custom command type handlers
-    types = {},
-    // default values
-    defaults = {
-        // selector of contextMenu trigger
-        selector: null,
-        // where to append the menu to
-        appendTo: null,
-        // method to trigger context menu ["right", "left", "hover"]
-        trigger: "right",
-        // hide menu when mouse leaves trigger / menu elements
-        autoHide: false,
-        // ms to wait before showing a hover-triggered context menu
-        delay: 200,
-        // flag denoting if a second trigger should simply move (true) or rebuild (false) an open menu
-        // as long as the trigger happened on one of the trigger-element's child nodes
-        reposition: true,
-        // determine position to show menu at
-        determinePosition: function($menu) {
-            // position to the lower middle of the trigger element
-            if ($.ui && $.ui.position) {
-                // .position() is provided as a jQuery UI utility
-                // (...and it won't work on hidden elements)
-                $menu.css('display', 'block').position({
-                    my: "center top",
-                    at: "center bottom",
-                    of: this,
-                    offset: "0 5",
-                    collision: "fit"
-                }).css('display', 'none');
-            } else {
-                // determine contextMenu position
-                var offset = this.offset();
-                offset.top += this.outerHeight();
-                offset.left += this.outerWidth() / 2 - $menu.outerWidth() / 2;
-                $menu.css(offset);
-            }
-        },
-        // position menu
-        position: function(opt, x, y) {
-            var $this = this,
-                offset;
-            // determine contextMenu position
-            if (!x && !y) {
-                opt.determinePosition.call(this, opt.$menu);
-                return;
-            } else if (x === "maintain" && y === "maintain") {
-                // x and y must not be changed (after re-show on command click)
-                offset = opt.$menu.position();
-            } else {
-                // x and y are given (by mouse event)
-                offset = {top: y, left: x};
-            }
-            
-            // correct offset if viewport demands it
-            var bottom = $win.scrollTop() + $win.height(),
-                right = $win.scrollLeft() + $win.width(),
-                height = opt.$menu.height(),
-                width = opt.$menu.width();
-            
-            if (offset.top + height > bottom) {
-                offset.top -= height;
-            }
-            
-            if (offset.left + width > right) {
-                offset.left -= width;
-            }
-            
-            opt.$menu.css(offset);
-        },
-        // position the sub-menu
-        positionSubmenu: function($menu) {
-            if ($.ui && $.ui.position) {
-                // .position() is provided as a jQuery UI utility
-                // (...and it won't work on hidden elements)
-                $menu.css('display', 'block').position({
-                    my: "left top",
-                    at: "right top",
-                    of: this,
-                    collision: "flipfit fit"
-                }).css('display', '');
-            } else {
-                // determine contextMenu position
-                var offset = {
-                    top: 0,
-                    left: this.outerWidth()
-                };
-                $menu.css(offset);
-            }
-        },
-        // offset to add to zIndex
-        zIndex: 1,
-        // show hide animation settings
-        animation: {
-            duration: 50,
-            show: 'slideDown',
-            hide: 'slideUp'
-        },
-        // events
-        events: {
-            show: $.noop,
-            hide: $.noop
-        },
-        // default callback
-        callback: null,
-        // list of contextMenu items
-        items: {}
-    },
-    // mouse position for hover activation
-    hoveract = {
-        timer: null,
-        pageX: null,
-        pageY: null
-    },
-    // determine zIndex
-    zindex = function($t) {
-        var zin = 0,
-            $tt = $t;
+  this._canScrollTabs = false;
+  this._tabScrollPos = 0;
+  this._curTab = -1;
+  this._layoutList = [];
+  this._moveable = true;
 
-        while (true) {
-            zin = Math.max(zin, parseInt($tt.css('z-index'), 10) || 0);
-            $tt = $tt.parent();
-            if (!$tt || !$tt.length || "html body".indexOf($tt.prop('nodeName').toLowerCase()) > -1 ) {
-                break;
-            }
-        }
-        
-        return zin;
-    },
-    // event handlers
-    handle = {
-        // abort anything
-        abortevent: function(e){
-            e.preventDefault();
-            e.stopImmediatePropagation();
-        },
-        
-        // contextmenu show dispatcher
-        contextmenu: function(e) {
-            var $this = $(this);
-            
-            // abort native-triggered events unless we're triggering on right click
-            if (e.data.trigger != 'right' && e.originalEvent) {
-                return;
-            }
-            
-            // abort event if menu is visible for this trigger
-            if ($this.hasClass('context-menu-active')) {
-                return;
-            }
-            
-            if (!$this.hasClass('context-menu-disabled')) {
-                // disable actual context-menu
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                
-                // theoretically need to fire a show event at <menu>
-                // http://www.whatwg.org/specs/web-apps/current-work/multipage/interactive-elements.html#context-menus
-                // var evt = jQuery.Event("show", { data: data, pageX: e.pageX, pageY: e.pageY, relatedTarget: this });
-                // e.data.$menu.trigger(evt);
-                
-                $currentTrigger = $this;
-                if (e.data.build) {
-                    var built = e.data.build($currentTrigger, e);
-                    // abort if build() returned false
-                    if (built === false) {
-                        return;
-                    }
-                    
-                    // dynamically build menu on invocation
-                    e.data = $.extend(true, {}, defaults, e.data, built || {});
-
-                    // abort if there are no items to display
-                    if (!e.data.items || $.isEmptyObject(e.data.items)) {
-                        // Note: jQuery captures and ignores errors from event handlers
-                        if (window.console) {
-                            (console.error || console.log)("No items specified to show in contextMenu");
-                        }
-                        
-                        throw new Error('No Items specified');
-                    }
-                    
-                    // backreference for custom command type creation
-                    e.data.$trigger = $currentTrigger;
-                    
-                    op.create(e.data);
-                }
-                // show menu
-                op.show.call($this, e.data, e.pageX, e.pageY);
-            }
-        },
-        // contextMenu left-click trigger
-        click: function(e) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            $(this).trigger($.Event("contextmenu", { data: e.data, pageX: e.pageX, pageY: e.pageY }));
-        },
-        // contextMenu right-click trigger
-        mousedown: function(e) {
-            // register mouse down
-            var $this = $(this);
-            
-            // hide any previous menus
-            if ($currentTrigger && $currentTrigger.length && !$currentTrigger.is($this)) {
-                $currentTrigger.data('contextMenu').$menu.trigger('contextmenu:hide');
-            }
-            
-            // activate on right click
-            if (e.button == 2) {
-                $currentTrigger = $this.data('contextMenuActive', true);
-            }
-        },
-        // contextMenu right-click trigger
-        mouseup: function(e) {
-            // show menu
-            var $this = $(this);
-            if ($this.data('contextMenuActive') && $currentTrigger && $currentTrigger.length && $currentTrigger.is($this) && !$this.hasClass('context-menu-disabled')) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                $currentTrigger = $this;
-                $this.trigger($.Event("contextmenu", { data: e.data, pageX: e.pageX, pageY: e.pageY }));
-            }
-            
-            $this.removeData('contextMenuActive');
-        },
-        // contextMenu hover trigger
-        mouseenter: function(e) {
-            var $this = $(this),
-                $related = $(e.relatedTarget),
-                $document = $(document);
-            
-            // abort if we're coming from a menu
-            if ($related.is('.context-menu-list') || $related.closest('.context-menu-list').length) {
-                return;
-            }
-            
-            // abort if a menu is shown
-            if ($currentTrigger && $currentTrigger.length) {
-                return;
-            }
-            
-            hoveract.pageX = e.pageX;
-            hoveract.pageY = e.pageY;
-            hoveract.data = e.data;
-            $document.on('mousemove.contextMenuShow', handle.mousemove);
-            hoveract.timer = setTimeout(function() {
-                hoveract.timer = null;
-                $document.off('mousemove.contextMenuShow');
-                $currentTrigger = $this;
-                $this.trigger($.Event("contextmenu", { data: hoveract.data, pageX: hoveract.pageX, pageY: hoveract.pageY }));
-            }, e.data.delay );
-        },
-        // contextMenu hover trigger
-        mousemove: function(e) {
-            hoveract.pageX = e.pageX;
-            hoveract.pageY = e.pageY;
-        },
-        // contextMenu hover trigger
-        mouseleave: function(e) {
-            // abort if we're leaving for a menu
-            var $related = $(e.relatedTarget);
-            if ($related.is('.context-menu-list') || $related.closest('.context-menu-list').length) {
-                return;
-            }
-            
-            try {
-                clearTimeout(hoveract.timer);
-            } catch(e) {}
-            
-            hoveract.timer = null;
-        },
-        
-        // click on layer to hide contextMenu
-        layerClick: function(e) {
-            var $this = $(this),
-                root = $this.data('contextMenuRoot'),
-                mouseup = false,
-                button = e.button,
-                x = e.pageX,
-                y = e.pageY,
-                target, 
-                offset,
-                selectors;
-                
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            
-            setTimeout(function() {
-                var $window, hideshow, possibleTarget;
-                var triggerAction = ((root.trigger == 'left' && button === 0) || (root.trigger == 'right' && button === 2));
-                
-                // find the element that would've been clicked, wasn't the layer in the way
-                if (document.elementFromPoint) {
-                    root.$layer.hide();
-                    target = document.elementFromPoint(x - $win.scrollLeft(), y - $win.scrollTop());
-                    root.$layer.show();
-                }
-                
-                if (root.reposition && triggerAction) {
-                    if (document.elementFromPoint) {
-                        if (root.$trigger.is(target) || root.$trigger.has(target).length) {
-                            root.position.call(root.$trigger, root, x, y);
-                            return;
-                        }
-                    } else {
-                        offset = root.$trigger.offset();
-                        $window = $(window);
-                        // while this looks kinda awful, it's the best way to avoid
-                        // unnecessarily calculating any positions
-                        offset.top += $window.scrollTop();
-                        if (offset.top <= e.pageY) {
-                            offset.left += $window.scrollLeft();
-                            if (offset.left <= e.pageX) {
-                                offset.bottom = offset.top + root.$trigger.outerHeight();
-                                if (offset.bottom >= e.pageY) {
-                                    offset.right = offset.left + root.$trigger.outerWidth();
-                                    if (offset.right >= e.pageX) {
-                                        // reposition
-                                        root.position.call(root.$trigger, root, x, y);
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if (target && triggerAction) {
-                    root.$trigger.one('contextmenu:hidden', function() {
-                        $(target).contextMenu({x: x, y: y});
-                    });
-                }
-
-                root.$menu.trigger('contextmenu:hide');
-            }, 50);
-        },
-        // key handled :hover
-        keyStop: function(e, opt) {
-            if (!opt.isInput) {
-                e.preventDefault();
-            }
-            
-            e.stopPropagation();
-        },
-        key: function(e) {
-            var opt = $currentTrigger.data('contextMenu') || {};
-
-            switch (e.keyCode) {
-                case 9:
-                case 38: // up
-                    handle.keyStop(e, opt);
-                    // if keyCode is [38 (up)] or [9 (tab) with shift]
-                    if (opt.isInput) {
-                        if (e.keyCode == 9 && e.shiftKey) {
-                            e.preventDefault();
-                            opt.$selected && opt.$selected.find('input, textarea, select').blur();
-                            opt.$menu.trigger('prevcommand');
-                            return;
-                        } else if (e.keyCode == 38 && opt.$selected.find('input, textarea, select').prop('type') == 'checkbox') {
-                            // checkboxes don't capture this key
-                            e.preventDefault();
-                            return;
-                        }
-                    } else if (e.keyCode != 9 || e.shiftKey) {
-                        opt.$menu.trigger('prevcommand');
-                        return;
-                    }
-                    // omitting break;
-                    
-                // case 9: // tab - reached through omitted break;
-                case 40: // down
-                    handle.keyStop(e, opt);
-                    if (opt.isInput) {
-                        if (e.keyCode == 9) {
-                            e.preventDefault();
-                            opt.$selected && opt.$selected.find('input, textarea, select').blur();
-                            opt.$menu.trigger('nextcommand');
-                            return;
-                        } else if (e.keyCode == 40 && opt.$selected.find('input, textarea, select').prop('type') == 'checkbox') {
-                            // checkboxes don't capture this key
-                            e.preventDefault();
-                            return;
-                        }
-                    } else {
-                        opt.$menu.trigger('nextcommand');
-                        return;
-                    }
-                    break;
-                
-                case 37: // left
-                    handle.keyStop(e, opt);
-                    if (opt.isInput || !opt.$selected || !opt.$selected.length) {
-                        break;
-                    }
-                
-                    if (!opt.$selected.parent().hasClass('context-menu-root')) {
-                        var $parent = opt.$selected.parent().parent();
-                        opt.$selected.trigger('contextmenu:blur');
-                        opt.$selected = $parent;
-                        return;
-                    }
-                    break;
-                    
-                case 39: // right
-                    handle.keyStop(e, opt);
-                    if (opt.isInput || !opt.$selected || !opt.$selected.length) {
-                        break;
-                    }
-                    
-                    var itemdata = opt.$selected.data('contextMenu') || {};
-                    if (itemdata.$menu && opt.$selected.hasClass('context-menu-submenu')) {
-                        opt.$selected = null;
-                        itemdata.$selected = null;
-                        itemdata.$menu.trigger('nextcommand');
-                        return;
-                    }
-                    break;
-                
-                case 35: // end
-                case 36: // home
-                    if (opt.$selected && opt.$selected.find('input, textarea, select').length) {
-                        return;
-                    } else {
-                        (opt.$selected && opt.$selected.parent() || opt.$menu)
-                            .children(':not(.disabled, .not-selectable)')[e.keyCode == 36 ? 'first' : 'last']()
-                            .trigger('contextmenu:focus');
-                        e.preventDefault();
-                        return;
-                    }
-                    break;
-                    
-                case 13: // enter
-                    handle.keyStop(e, opt);
-                    if (opt.isInput) {
-                        if (opt.$selected && !opt.$selected.is('textarea, select')) {
-                            e.preventDefault();
-                            return;
-                        }
-                        break;
-                    }
-                    opt.$selected && opt.$selected.trigger('mouseup');
-                    return;
-                    
-                case 32: // space
-                case 33: // page up
-                case 34: // page down
-                    // prevent browser from scrolling down while menu is visible
-                    handle.keyStop(e, opt);
-                    return;
-                    
-                case 27: // esc
-                    handle.keyStop(e, opt);
-                    opt.$menu.trigger('contextmenu:hide');
-                    return;
-                    
-                default: // 0-9, a-z
-                    var k = (String.fromCharCode(e.keyCode)).toUpperCase();
-                    if (opt.accesskeys[k]) {
-                        // according to the specs accesskeys must be invoked immediately
-                        opt.accesskeys[k].$node.trigger(opt.accesskeys[k].$menu
-                            ? 'contextmenu:focus'
-                            : 'mouseup'
-                        );
-                        return;
-                    }
-                    break;
-            }
-            // pass event to selected item, 
-            // stop propagation to avoid endless recursion
-            e.stopPropagation();
-            opt.$selected && opt.$selected.trigger(e);
-        },
-
-        // select previous possible command in menu
-        prevItem: function(e) {
-            e.stopPropagation();
-            var opt = $(this).data('contextMenu') || {};
-
-            // obtain currently selected menu
-            if (opt.$selected) {
-                var $s = opt.$selected;
-                opt = opt.$selected.parent().data('contextMenu') || {};
-                opt.$selected = $s;
-            }
-            
-            var $children = opt.$menu.children(),
-                $prev = !opt.$selected || !opt.$selected.prev().length ? $children.last() : opt.$selected.prev(),
-                $round = $prev;
-            
-            // skip disabled
-            while ($prev.hasClass('disabled') || $prev.hasClass('not-selectable')) {
-                if ($prev.prev().length) {
-                    $prev = $prev.prev();
-                } else {
-                    $prev = $children.last();
-                }
-                if ($prev.is($round)) {
-                    // break endless loop
-                    return;
-                }
-            }
-            
-            // leave current
-            if (opt.$selected) {
-                handle.itemMouseleave.call(opt.$selected.get(0), e);
-            }
-            
-            // activate next
-            handle.itemMouseenter.call($prev.get(0), e);
-            
-            // focus input
-            var $input = $prev.find('input, textarea, select');
-            if ($input.length) {
-                $input.focus();
-            }
-        },
-        // select next possible command in menu
-        nextItem: function(e) {
-            e.stopPropagation();
-            var opt = $(this).data('contextMenu') || {};
-
-            // obtain currently selected menu
-            if (opt.$selected) {
-                var $s = opt.$selected;
-                opt = opt.$selected.parent().data('contextMenu') || {};
-                opt.$selected = $s;
-            }
-
-            var $children = opt.$menu.children(),
-                $next = !opt.$selected || !opt.$selected.next().length ? $children.first() : opt.$selected.next(),
-                $round = $next;
-
-            // skip disabled
-            while ($next.hasClass('disabled') || $next.hasClass('not-selectable')) {
-                if ($next.next().length) {
-                    $next = $next.next();
-                } else {
-                    $next = $children.first();
-                }
-                if ($next.is($round)) {
-                    // break endless loop
-                    return;
-                }
-            }
-            
-            // leave current
-            if (opt.$selected) {
-                handle.itemMouseleave.call(opt.$selected.get(0), e);
-            }
-            
-            // activate next
-            handle.itemMouseenter.call($next.get(0), e);
-            
-            // focus input
-            var $input = $next.find('input, textarea, select');
-            if ($input.length) {
-                $input.focus();
-            }
-        },
-        
-        // flag that we're inside an input so the key handler can act accordingly
-        focusInput: function(e) {
-            var $this = $(this).closest('.context-menu-item'),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot;
-
-            root.$selected = opt.$selected = $this;
-            root.isInput = opt.isInput = true;
-        },
-        // flag that we're inside an input so the key handler can act accordingly
-        blurInput: function(e) {
-            var $this = $(this).closest('.context-menu-item'),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot;
-
-            root.isInput = opt.isInput = false;
-        },
-        
-        // :hover on menu
-        menuMouseenter: function(e) {
-            var root = $(this).data().contextMenuRoot;
-            root.hovering = true;
-        },
-        // :hover on menu
-        menuMouseleave: function(e) {
-            var root = $(this).data().contextMenuRoot;
-            if (root.$layer && root.$layer.is(e.relatedTarget)) {
-                root.hovering = false;
-            }
-        },
-        
-        // :hover done manually so key handling is possible
-        itemMouseenter: function(e) {
-            var $this = $(this),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot;
-            
-            root.hovering = true;
-
-            // abort if we're re-entering
-            if (e && root.$layer && root.$layer.is(e.relatedTarget)) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-            }
-
-            // make sure only one item is selected
-            (opt.$menu ? opt : root).$menu
-                .children('.hover').trigger('contextmenu:blur');
-
-            if ($this.hasClass('disabled') || $this.hasClass('not-selectable')) {
-                opt.$selected = null;
-                return;
-            }
-            
-            $this.trigger('contextmenu:focus');
-        },
-        // :hover done manually so key handling is possible
-        itemMouseleave: function(e) {
-            var $this = $(this),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot;
-
-            if (root !== opt && root.$layer && root.$layer.is(e.relatedTarget)) {
-                root.$selected && root.$selected.trigger('contextmenu:blur');
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                root.$selected = opt.$selected = opt.$node;
-                return;
-            }
-            
-            $this.trigger('contextmenu:blur');
-        },
-        // contextMenu item click
-        itemClick: function(e) {
-            var $this = $(this),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot,
-                key = data.contextMenuKey,
-                callback;
-
-            // abort if the key is unknown or disabled or is a menu
-            if (!opt.items[key] || $this.is('.disabled, .context-menu-submenu, .context-menu-separator, .not-selectable')) {
-                return;
-            }
-
-            e.preventDefault();
-            e.stopImmediatePropagation();
-
-            if ($.isFunction(root.callbacks[key]) && Object.prototype.hasOwnProperty.call(root.callbacks, key)) {
-                // item-specific callback
-                callback = root.callbacks[key];
-            } else if ($.isFunction(root.callback)) {
-                // default callback
-                callback = root.callback;                
-            } else {
-                // no callback, no action
-                return;
-            }
-
-            // hide menu if callback doesn't stop that
-            if (callback.call(root.$trigger, key, root) !== false) {
-                root.$menu.trigger('contextmenu:hide');
-            } else if (root.$menu.parent().length) {
-                op.update.call(root.$trigger, root);
-            }
-        },
-        // ignore click events on input elements
-        inputClick: function(e) {
-            e.stopImmediatePropagation();
-        },
-        
-        // hide <menu>
-        hideMenu: function(e, data) {
-            var root = $(this).data('contextMenuRoot');
-            op.hide.call(root.$trigger, root, data && data.force);
-        },
-        // focus <command>
-        focusItem: function(e) {
-            e.stopPropagation();
-            var $this = $(this),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot;
-
-            $this.addClass('hover')
-                .siblings('.hover').trigger('contextmenu:blur');
-            
-            // remember selected
-            opt.$selected = root.$selected = $this;
-            
-            // position sub-menu - do after show so dumb $.ui.position can keep up
-            if (opt.$node) {
-                root.positionSubmenu.call(opt.$node, opt.$menu);
-            }
-        },
-        // blur <command>
-        blurItem: function(e) {
-            e.stopPropagation();
-            var $this = $(this),
-                data = $this.data(),
-                opt = data.contextMenu,
-                root = data.contextMenuRoot;
-            
-            $this.removeClass('hover');
-            opt.$selected = null;
-        }
-    },
-    // operations
-    op = {
-        show: function(opt, x, y) {
-            var $trigger = $(this),
-                offset,
-                css = {};
-
-            // hide any open menus
-            $('#context-menu-layer').trigger('mousedown');
-
-            // backreference for callbacks
-            opt.$trigger = $trigger;
-
-            // show event
-            if (opt.events.show.call($trigger, opt) === false) {
-                $currentTrigger = null;
-                return;
-            }
-
-            // create or update context menu
-            op.update.call($trigger, opt);
-            
-            // position menu
-            opt.position.call($trigger, opt, x, y);
-
-            // make sure we're in front
-            if (opt.zIndex) {
-                css.zIndex = zindex($trigger) + opt.zIndex;
-            }
-            
-            // add layer
-            op.layer.call(opt.$menu, opt, css.zIndex);
-            
-            // adjust sub-menu zIndexes
-            opt.$menu.find('ul').css('zIndex', css.zIndex + 1);
-            
-            // position and show context menu
-            opt.$menu.css( css )[opt.animation.show](opt.animation.duration, function() {
-                $trigger.trigger('contextmenu:visible');
-            });
-            // make options available and set state
-            $trigger
-                .data('contextMenu', opt)
-                .addClass("context-menu-active");
-            
-            // register key handler
-            $(document).off('keydown.contextMenu').on('keydown.contextMenu', handle.key);
-            // register autoHide handler
-            if (opt.autoHide) {
-                // mouse position handler
-                $(document).on('mousemove.contextMenuAutoHide', function(e) {
-                    // need to capture the offset on mousemove,
-                    // since the page might've been scrolled since activation
-                    var pos = $trigger.offset();
-                    pos.right = pos.left + $trigger.outerWidth();
-                    pos.bottom = pos.top + $trigger.outerHeight();
-                    
-                    if (opt.$layer && !opt.hovering && (!(e.pageX >= pos.left && e.pageX <= pos.right) || !(e.pageY >= pos.top && e.pageY <= pos.bottom))) {
-                        // if mouse in menu...
-                        opt.$menu.trigger('contextmenu:hide');
-                    }
-                });
-            }
-        },
-        hide: function(opt, force) {
-            var $trigger = $(this);
-            if (!opt) {
-                opt = $trigger.data('contextMenu') || {};
-            }
-            
-            // hide event
-            if (!force && opt.events && opt.events.hide.call($trigger, opt) === false) {
-                return;
-            }
-            
-            // remove options and revert state
-            $trigger
-                .removeData('contextMenu')
-                .removeClass("context-menu-active");
-            
-            if (opt.$layer) {
-                // keep layer for a bit so the contextmenu event can be aborted properly by opera
-                setTimeout((function($layer) {
-                    return function(){
-                        $layer.remove();
-                    };
-                })(opt.$layer), 10);
-                
-                try {
-                    delete opt.$layer;
-                } catch(e) {
-                    opt.$layer = null;
-                }
-            }
-            
-            // remove handle
-            $currentTrigger = null;
-            // remove selected
-            opt.$menu.find('.hover').trigger('contextmenu:blur');
-            opt.$selected = null;
-            // unregister key and mouse handlers
-            //$(document).off('.contextMenuAutoHide keydown.contextMenu'); // http://bugs.jquery.com/ticket/10705
-            $(document).off('.contextMenuAutoHide').off('keydown.contextMenu');
-            // hide menu
-            opt.$menu && opt.$menu[opt.animation.hide](opt.animation.duration, function (){
-                // tear down dynamically built menu after animation is completed.
-                if (opt.build) {
-                    opt.$menu.remove();
-                    $.each(opt, function(key, value) {
-                        switch (key) {
-                            case 'ns':
-                            case 'selector':
-                            case 'build':
-                            case 'trigger':
-                                return true;
-
-                            default:
-                                opt[key] = undefined;
-                                try {
-                                    delete opt[key];
-                                } catch (e) {}
-                                return true;
-                        }
-                    });
-                }
-                
-                setTimeout(function() {
-                    $trigger.trigger('contextmenu:hidden');
-                }, 10);
-            });
-        },
-        create: function(opt, root) {
-            if (root === undefined) {
-                root = opt;
-            }
-            // create contextMenu
-            opt.$menu = $('<ul class="context-menu-list"></ul>').addClass(opt.className || "").data({
-                'contextMenu': opt,
-                'contextMenuRoot': root
-            });
-            
-            $.each(['callbacks', 'commands', 'inputs'], function(i,k){
-                opt[k] = {};
-                if (!root[k]) {
-                    root[k] = {};
-                }
-            });
-            
-            root.accesskeys || (root.accesskeys = {});
-            
-            // create contextMenu items
-            $.each(opt.items, function(key, item){
-                var $t = $('<li class="context-menu-item"></li>').addClass(item.className || ""),
-                    $label = null,
-                    $input = null;
-                
-                // iOS needs to see a click-event bound to an element to actually
-                // have the TouchEvents infrastructure trigger the click event
-                $t.on('click', $.noop);
-                
-                item.$node = $t.data({
-                    'contextMenu': opt,
-                    'contextMenuRoot': root,
-                    'contextMenuKey': key
-                });
-                
-                // register accesskey
-                // NOTE: the accesskey attribute should be applicable to any element, but Safari5 and Chrome13 still can't do that
-                if (item.accesskey) {
-                    var aks = splitAccesskey(item.accesskey);
-                    for (var i=0, ak; ak = aks[i]; i++) {
-                        if (!root.accesskeys[ak]) {
-                            root.accesskeys[ak] = item;
-                            item._name = item.name.replace(new RegExp('(' + ak + ')', 'i'), '<span class="context-menu-accesskey">$1</span>');
-                            break;
-                        }
-                    }
-                }
-                
-                if (typeof item == "string") {
-                    $t.addClass('context-menu-separator not-selectable');
-                } else if (item.type && types[item.type]) {
-                    // run custom type handler
-                    types[item.type].call($t, item, opt, root);
-                    // register commands
-                    $.each([opt, root], function(i,k){
-                        k.commands[key] = item;
-                        if ($.isFunction(item.callback)) {
-                            k.callbacks[key] = item.callback;
-                        }
-                    });
-                } else {
-                    // add label for input
-                    if (item.type == 'html') {
-                        $t.addClass('context-menu-html not-selectable');
-                    } else if (item.type) {
-                        $label = $('<label></label>').appendTo($t);
-                        $('<span></span>').html(item._name || item.name).appendTo($label);
-                        $t.addClass('context-menu-input');
-                        opt.hasTypes = true;
-                        $.each([opt, root], function(i,k){
-                            k.commands[key] = item;
-                            k.inputs[key] = item;
-                        });
-                    } else if (item.items) {
-                        item.type = 'sub';
-                    }
-                
-                    switch (item.type) {
-                        case 'text':
-                            $input = $('<input type="text" value="1" name="" value="">')
-                                .attr('name', 'context-menu-input-' + key)
-                                .val(item.value || "")
-                                .appendTo($label);
-                            break;
-                    
-                        case 'textarea':
-                            $input = $('<textarea name=""></textarea>')
-                                .attr('name', 'context-menu-input-' + key)
-                                .val(item.value || "")
-                                .appendTo($label);
-
-                            if (item.height) {
-                                $input.height(item.height);
-                            }
-                            break;
-
-                        case 'checkbox':
-                            $input = $('<input type="checkbox" value="1" name="" value="">')
-                                .attr('name', 'context-menu-input-' + key)
-                                .val(item.value || "")
-                                .prop("checked", !!item.selected)
-                                .prependTo($label);
-                            break;
-
-                        case 'radio':
-                            $input = $('<input type="radio" value="1" name="" value="">')
-                                .attr('name', 'context-menu-input-' + item.radio)
-                                .val(item.value || "")
-                                .prop("checked", !!item.selected)
-                                .prependTo($label);
-                            break;
-                    
-                        case 'select':
-                            $input = $('<select name="">')
-                                .attr('name', 'context-menu-input-' + key)
-                                .appendTo($label);
-                            if (item.options) {
-                                $.each(item.options, function(value, text) {
-                                    $('<option></option>').val(value).text(text).appendTo($input);
-                                });
-                                $input.val(item.selected);
-                            }
-                            break;
-                        
-                        case 'sub':
-                            // FIXME: shouldn't this .html() be a .text()?
-                            $('<span></span>').html(item._name || item.name).appendTo($t);
-                            item.appendTo = item.$node;
-                            op.create(item, root);
-                            $t.data('contextMenu', item).addClass('context-menu-submenu');
-                            item.callback = null;
-                            break;
-                        
-                        case 'html':
-                            $(item.html).appendTo($t);
-                            break;
-                        
-                        default:
-                            $.each([opt, root], function(i,k){
-                                k.commands[key] = item;
-                                if ($.isFunction(item.callback)) {
-                                    k.callbacks[key] = item.callback;
-                                }
-                            });
-                            // FIXME: shouldn't this .html() be a .text()?
-                            $('<span></span>').html(item._name || item.name || "").appendTo($t);
-                            break;
-                    }
-                    
-                    // disable key listener in <input>
-                    if (item.type && item.type != 'sub' && item.type != 'html') {
-                        $input
-                            .on('focus', handle.focusInput)
-                            .on('blur', handle.blurInput);
-                        
-                        if (item.events) {
-                            $input.on(item.events, opt);
-                        }
-                    }
-                
-                    // add icons
-                    if (item.icon) {
-                        $t.addClass("icon icon-" + item.icon);
-                    }
-                }
-                
-                // cache contained elements
-                item.$input = $input;
-                item.$label = $label;
-
-                // attach item to menu
-                $t.appendTo(opt.$menu);
-                
-                // Disable text selection
-                if (!opt.hasTypes && $.support.eventSelectstart) {
-                    // browsers support user-select: none, 
-                    // IE has a special event for text-selection
-                    // browsers supporting neither will not be preventing text-selection
-                    $t.on('selectstart.disableTextSelect', handle.abortevent);
-                }
-            });
-            // attach contextMenu to <body> (to bypass any possible overflow:hidden issues on parents of the trigger element)
-            if (!opt.$node) {
-                opt.$menu.css('display', 'none').addClass('context-menu-root');
-            }
-            opt.$menu.appendTo(opt.appendTo || document.body);
-        },
-        resize: function($menu, nested) {
-            // determine widths of submenus, as CSS won't grow them automatically
-            // position:absolute within position:absolute; min-width:100; max-width:200; results in width: 100;
-            // kinda sucks hard...
-
-            // determine width of absolutely positioned element
-            $menu.css({position: 'absolute', display: 'block'});
-            // don't apply yet, because that would break nested elements' widths
-            // add a pixel to circumvent word-break issue in IE9 - #80
-            $menu.data('width', Math.ceil($menu.width()) + 1);
-            // reset styles so they allow nested elements to grow/shrink naturally
-            $menu.css({
-                position: 'static',
-                minWidth: '0px',
-                maxWidth: '100000px'
-            });
-            // identify width of nested menus
-            $menu.find('> li > ul').each(function() {
-                op.resize($(this), true);
-            });
-            // reset and apply changes in the end because nested
-            // elements' widths wouldn't be calculatable otherwise
-            if (!nested) {
-                $menu.find('ul').andSelf().css({
-                    position: '', 
-                    display: '',
-                    minWidth: '',
-                    maxWidth: ''
-                }).width(function() {
-                    return $(this).data('width');
-                });
-            }
-        },
-        update: function(opt, root) {
-            var $trigger = this;
-            if (root === undefined) {
-                root = opt;
-                op.resize(opt.$menu);
-            }
-            // re-check disabled for each item
-            opt.$menu.children().each(function(){
-                var $item = $(this),
-                    key = $item.data('contextMenuKey'),
-                    item = opt.items[key],
-                    disabled = ($.isFunction(item.disabled) && item.disabled.call($trigger, key, root)) || item.disabled === true;
-
-                // dis- / enable item
-                $item[disabled ? 'addClass' : 'removeClass']('disabled');
-                
-                if (item.type) {
-                    // dis- / enable input elements
-                    $item.find('input, select, textarea').prop('disabled', disabled);
-                    
-                    // update input states
-                    switch (item.type) {
-                        case 'text':
-                        case 'textarea':
-                            item.$input.val(item.value || "");
-                            break;
-                            
-                        case 'checkbox':
-                        case 'radio':
-                            item.$input.val(item.value || "").prop('checked', !!item.selected);
-                            break;
-                            
-                        case 'select':
-                            item.$input.val(item.selected || "");
-                            break;
-                    }
-                }
-                
-                if (item.$menu) {
-                    // update sub-menu
-                    op.update.call($trigger, item, root);
-                }
-            });
-        },
-        layer: function(opt, zIndex) {
-            // add transparent layer for click area
-            // filter and background for Internet Explorer, Issue #23
-            var $layer = opt.$layer = $('<div id="context-menu-layer" style="position:fixed; z-index:' + zIndex + '; top:0; left:0; opacity: 0; filter: alpha(opacity=0); background-color: #000;"></div>')
-                .css({height: $win.height(), width: $win.width(), display: 'block'})
-                .data('contextMenuRoot', opt)
-                .insertBefore(this)
-                .on('contextmenu', handle.abortevent)
-                .on('mousedown', handle.layerClick);
-            
-            // IE6 doesn't know position:fixed;
-            if (!$.support.fixedPosition) {
-                $layer.css({
-                    'position' : 'absolute',
-                    'height' : $(document).height()
-                });
-            }
-            
-            return $layer;
-        }
-    };
-
-// split accesskey according to http://www.whatwg.org/specs/web-apps/current-work/multipage/editing.html#assigned-access-key
-function splitAccesskey(val) {
-    var t = val.split(/\s+/),
-        keys = [];
-        
-    for (var i=0, k; k = t[i]; i++) {
-        k = k[0].toUpperCase(); // first character only
-        // theoretically non-accessible characters should be ignored, but different systems, different keyboard layouts, ... screw it.
-        // a map to look up already used access keys would be nice
-        keys.push(k);
-    }
-    
-    return keys;
-}
-
-// handle contextMenu triggers
-$.fn.contextMenu = function(operation) {
-    if (operation === undefined) {
-        this.first().trigger('contextmenu');
-    } else if (operation.x && operation.y) {
-        this.first().trigger($.Event("contextmenu", {pageX: operation.x, pageY: operation.y}));
-    } else if (operation === "hide") {
-        var $menu = this.data('contextMenu').$menu;
-        $menu && $menu.trigger('contextmenu:hide');
-    } else if (operation === "destroy") {
-        $.contextMenu("destroy", {context: this});
-    } else if ($.isPlainObject(operation)) {
-        operation.context = this;
-        $.contextMenu("create", operation);
-    } else if (operation) {
-        this.removeClass('context-menu-disabled');
-    } else if (!operation) {
-        this.addClass('context-menu-disabled');
-    }
-    
-    return this;
+  this.__init();
 };
 
-// manage contextMenu instances
-$.contextMenu = function(operation, options) {
-    if (typeof operation != 'string') {
-        options = operation;
-        operation = 'create';
+wcTabFrame.prototype = {
+  LEFT_TAB_BUFFER: 15,
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// Public Functions
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // Finds the main Docker window.
+  docker: function() {
+    var parent = this._parent;
+    while (parent && !(parent instanceof wcDocker)) {
+      parent = parent._parent;
     }
-    
-    if (typeof options == 'string') {
-        options = {selector: options};
-    } else if (options === undefined) {
-        options = {};
-    }
-    
-    // merge with default options
-    var o = $.extend(true, {}, defaults, options || {});
-    var $document = $(document);
-    var $context = $document;
-    var _hasContext = false;
-    
-    if (!o.context || !o.context.length) {
-        o.context = document;
+    return parent;
+  },
+
+  // Updates the tab elements.  Use them whenever its container
+  // is resized.
+  update: function() {
+    this.__update();
+  },
+
+  // Destroys the tab area.
+  destroy: function() {
+    this.__destroy();
+  },
+
+  // Adds a new tab item at a given index
+  // Params:
+  //    name      The name of the tab.
+  //    index     An optional index to insert the tab at.
+  // Returns:
+  //    wcLayout  The layout of the newly created tab.
+  addTab: function(name, index) {
+    var newLayout = new wcLayout('.wcDockerTransition', this._parent);
+    newLayout.name = name;
+    newLayout._scrollable = {
+      x: true,
+      y: true,
+    };
+    newLayout._scroll = {
+      x: 0,
+      y: 0,
+    };
+    newLayout._closeable = false;
+    newLayout._overflowVisible = false;
+
+    if (typeof index === 'undefined') {
+      this._layoutList.push(newLayout);
     } else {
-        // you never know what they throw at you...
-        $context = $(o.context).first();
-        o.context = $context.get(0);
-        _hasContext = o.context !== document;
+      this._layoutList.splice(index, 0, newLayout);
     }
-    
-    switch (operation) {
-        case 'create':
-            // no selector no joy
-            if (!o.selector) {
-                throw new Error('No selector specified');
-            }
-            // make sure internal classes are not bound to
-            if (o.selector.match(/.context-menu-(list|item|input)($|\s)/)) {
-                throw new Error('Cannot bind to selector "' + o.selector + '" as it contains a reserved className');
-            }
-            if (!o.build && (!o.items || $.isEmptyObject(o.items))) {
-                throw new Error('No Items specified');
-            }
-            counter ++;
-            o.ns = '.contextMenu' + counter;
-            if (!_hasContext) {
-                namespaces[o.selector] = o.ns;
-            }
-            menus[o.ns] = o;
-            
-            // default to right click
-            if (!o.trigger) {
-                o.trigger = 'right';
-            }
-            
-            if (!initialized) {
-                // make sure item click is registered first
-                $document
-                    .on({
-                        'contextmenu:hide.contextMenu': handle.hideMenu,
-                        'prevcommand.contextMenu': handle.prevItem,
-                        'nextcommand.contextMenu': handle.nextItem,
-                        'contextmenu.contextMenu': handle.abortevent,
-                        'mouseenter.contextMenu': handle.menuMouseenter,
-                        'mouseleave.contextMenu': handle.menuMouseleave
-                    }, '.context-menu-list')
-                    .on('mouseup.contextMenu', '.context-menu-input', handle.inputClick)
-                    .on({
-                        'mouseup.contextMenu': handle.itemClick,
-                        'contextmenu:focus.contextMenu': handle.focusItem,
-                        'contextmenu:blur.contextMenu': handle.blurItem,
-                        'contextmenu.contextMenu': handle.abortevent,
-                        'mouseenter.contextMenu': handle.itemMouseenter,
-                        'mouseleave.contextMenu': handle.itemMouseleave
-                    }, '.context-menu-item');
 
-                initialized = true;
+    if (this._curTab === -1 && this._layoutList.length) {
+      this._curTab = 0;
+    }
+
+    this.__updateTabs();
+
+    return newLayout;
+  },
+
+  // Removes a tab item.
+  // Params:
+  //    index       The tab index to remove.
+  // Returns:
+  //    bool        Returns whether or not the tab was removed.
+  removeTab: function(index) {
+    if (index > -1 && index < this._layoutList.length) {
+      var name = this._layoutList[index].name;
+      this._layoutList[index].__destroy();
+      this._layoutList.splice(index, 1);
+
+      if (this._curTab >= index) {
+        this._curTab--;
+
+        if (this._curTab < 0) {
+          this._curTab = 0;
+        }
+      }
+
+      this.__updateTabs();
+      this._parent.__trigger(wcDocker.EVENT_CUSTOM_TAB_CLOSED, {obj: this, name: name, index: index});
+      return true;
+    }
+    return false;
+  },
+
+  // Gets, or Sets the currently visible tab.
+  // Params:
+  //    index     If supplied, sets the current tab index.
+  // Returns:
+  //    number    The currently visible tab index.
+  tab: function(index, autoFocus) {
+    if (typeof index !== 'undefined') {
+      if (index > -1 && index < this._layoutList.length) {
+        this.$title.find('> .wcTabScroller > .wcPanelTab[id="' + this._curTab + '"]').removeClass('wcPanelTabActive');
+        this.$center.children('.wcPanelTabContent[id="' + this._curTab + '"]').addClass('wcPanelTabContentHidden');
+        this._curTab = index;
+        this.$title.find('> .wcTabScroller > .wcPanelTab[id="' + index + '"]').addClass('wcPanelTabActive');
+        this.$center.children('.wcPanelTabContent[id="' + index + '"]').removeClass('wcPanelTabContentHidden');
+        this.__updateTabs(autoFocus);
+
+        var name = this._layoutList[this._curTab].name;
+        this._parent.__trigger(wcDocker.EVENT_CUSTOM_TAB_CHANGED, {obj: this, name: name, index: index});
+      }
+    }
+
+    return this._curTab;
+  },
+
+  // Retrieves the layout for a given tab.
+  // Params:
+  //    index     The tab index.
+  // Returns:
+  //    wcLayout  The layout found.
+  //    false     The layout was not found.
+  layout: function(index) {
+    if (index > -1 && index < this._layoutList.length) {
+      return this._layoutList[index];
+    }
+    return false;
+  },
+
+  // Moves a tab from a given index to another index.
+  // Params:
+  //    fromIndex     The current tab index to move.
+  //    toIndex       The new index to move to.
+  // Returns:
+  //    element       The new element of the moved tab.
+  //    false         If an error occurred.
+  moveTab: function(fromIndex, toIndex) {
+    if (fromIndex >= 0 && fromIndex < this._layoutList.length &&
+        toIndex >= 0 && toIndex < this._layoutList.length) {
+      var panel = this._layoutList.splice(fromIndex, 1);
+      this._layoutList.splice(toIndex, 0, panel[0]);
+
+      // Preserve the currently active tab.
+      if (this._curTab === fromIndex) {
+        this._curTab = toIndex;
+      }
+
+      this.__updateTabs();
+
+      return this.$title.find('> .wcTabScroller > .wcPanelTab[id="' + toIndex + '"]')[0];
+    }
+    return false;
+  },
+
+  // Gets, or Sets whether the tabs can be reordered by the user.
+  // Params:
+  //    moveable  If supplied, assigns whether tabs are moveable.
+  // Returns:
+  //    boolean   Whether tabs are currently moveable.
+  moveable: function(moveable) {
+    if (typeof moveable !== 'undefined') {
+      this._moveable = moveable;
+    }
+    return this._moveable;
+  },
+
+  // Gets, or Sets whether a tab can be closed (removed) by the user.
+  // Params:
+  //    index     The index of the tab.
+  //    closeable If supplied, assigns whether the tab can be closed.
+  // Returns:
+  //    boolean   Whether the tab can be closed.
+  closeable: function(index, closeable) {
+    if (index > -1 && index < this._layoutList.length) {
+      var layout = this._layoutList[index];
+
+      if (typeof closeable !== 'undefined') {
+        layout._closeable = closeable;
+      }
+
+      return layout._closeable;
+    }
+    return false;
+  },
+
+  // Gets, or Sets whether a tab area is scrollable.
+  // Params:
+  //    index     The index of the tab.
+  //    x, y      If supplied, assigns whether the tab pane
+  //              is scrollable for each axis.
+  // Returns:
+  //    Object    An object with boolean values x and y
+  //              that tell whether each axis is scrollable.
+  scrollable: function(index, x, y) {
+    if (index > -1 && index < this._layoutList.length) {
+      var layout = this._layoutList[index];
+
+      var changed = false;
+      if (typeof x !== 'undefined') {
+        layout._scrollable.x = x;
+        changed = true;
+      }
+      if (typeof y !== 'undefined') {
+        layout._scrollable.y = y;
+        changed = true;
+      }
+
+      if (changed) {
+        this.__onTabChange();
+      }
+
+      return {
+        x: layout._scrollable.x,
+        y: layout._scrollable.y,
+      };
+    }
+    return false;
+  },
+
+  // Gets, or Sets whether overflow on a tab area is visible.
+  // Params:
+  //    index     The index of the tab.
+  //    visible   If supplied, assigns whether overflow is visible.
+  //
+  // Returns:
+  //    boolean   The current overflow visibility.
+  overflowVisible: function(index, visible) {
+    if (index > -1 && index < this._layoutList.length) {
+      var layout = this._layoutList[index];
+
+      if (typeof overflow !== 'undefined') {
+        layout._overflowVisible = overflow;
+        this.__onTabChange();
+      }
+      return layout._overflowVisible;
+    }
+    return false;
+  },
+
+  // Sets the icon for a tab.
+  // Params:
+  //    index     The index of the tab to alter.
+  //    icon      A CSS class name that represents the icon.
+  icon: function(index, icon) {
+    if (index > -1 && index < this._layoutList.length) {
+      var layout = this._layoutList[index];
+
+      if (!layout.$icon) {
+        layout.$icon = $('<div>');
+      }
+
+      layout.$icon.removeClass();
+      layout.$icon.addClass('wcTabIcon ' + icon);
+    }
+  },
+
+  // Sets the icon for a tab.
+  // Params:
+  //    index     The index of the tab to alter.
+  //    icon      A font-awesome icon name (without the 'fa-' prefix).
+  faicon: function(index, icon) {
+    if (index > -1 && index < this._layoutList.length) {
+      var layout = this._layoutList[index];
+
+      if (!layout.$icon) {
+        layout.$icon = $('<div>');
+      }
+
+      layout.$icon.removeClass();
+      layout.$icon.addClass('fa fa-fw fa-' + icon);
+    }
+  },
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// Private Functions
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // Initialize
+  __init: function() {
+    this.$frame     = $('<div class="wcCustomTab wcWide wcTall wcPanelBackground">');
+    this.$title     = $('<div class="wcFrameTitle wcCustomTabTitle">');
+    this.$tabScroll = $('<div class="wcTabScroller">');
+    this.$center    = $('<div class="wcFrameCenter wcWide">');
+    this.$tabLeft   = $('<div class="wcFrameButton" title="Scroll tabs to the left."><span class="fa fa-arrow-left"></span>&lt;</div>');
+    this.$tabRight  = $('<div class="wcFrameButton" title="Scroll tabs to the right."><span class="fa fa-arrow-right"></span>&gt;</div>');
+    this.$close     = $('<div class="wcFrameButton" title="Close the currently active panel tab"><span class="fa fa-close"></span>X</div>');
+    this.$frame.append(this.$title);
+    this.$title.append(this.$tabScroll);
+    this.$frame.append(this.$center);
+
+    this.__container(this.$container);
+
+    this.docker()._tabList.push(this);
+  },
+
+  // Updates the size of the frame.
+  __update: function() {
+    this.__updateTabs();
+  },
+
+  __updateTabs: function(autoFocus) {
+    this.$tabScroll.empty();
+
+    var tabPositions = [];
+    var totalWidth = 0;
+    var parentLeft = this.$tabScroll.offset().left;
+    var self = this;
+
+    this.$center.children('.wcPanelTabContent').each(function() {
+      $(this).addClass('wcPanelTabContentHidden wcPanelTabUnused');
+    });
+
+    for (var i = 0; i < this._layoutList.length; ++i) {
+      var $tab = $('<div id="' + i + '" class="wcPanelTab">' + this._layoutList[i].name + '</div>');
+      if (this._moveable) {
+        $tab.addClass('wcCustomTabMoveable');
+      }
+      this.$tabScroll.append($tab);
+      if (this._layoutList[i].$icon) {
+        $tab.prepend(this._layoutList[i].$icon);
+      }
+
+      var $tabContent = this.$center.children('.wcPanelTabContent[id="' + i + '"]');
+      if (!$tabContent.length) {
+        $tabContent = $('<div class="wcPanelTabContent wcPanelBackground wcPanelTabContentHidden" id="' + i + '">');
+        this.$center.append($tabContent);
+      }
+
+      this._layoutList[i].__container($tabContent);
+      this._layoutList[i]._parent = this;
+
+      var isVisible = this._curTab === i;
+
+      $tabContent.removeClass('wcPanelTabUnused');
+
+      if (isVisible) {
+        $tab.addClass('wcPanelTabActive');
+        $tabContent.removeClass('wcPanelTabContentHidden');
+      }
+
+      totalWidth = $tab.offset().left - parentLeft;
+      tabPositions.push(totalWidth);
+
+      totalWidth += $tab.outerWidth();
+    }
+
+    // Now remove all unused panel tabs.
+    this.$center.children('.wcPanelTabUnused').each(function() {
+      $(this).remove();
+    });
+
+    // $tempCenter.remove();
+    var buttonSize = this.__onTabChange();
+
+    if (autoFocus) {
+      for (var i = 0; i < tabPositions.length; ++i) {
+        if (i === this._curTab) {
+          var left = tabPositions[i];
+          var right = totalWidth;
+          if (i+1 < tabPositions.length) {
+            right = tabPositions[i+1];
+          }
+
+          var scrollPos = -parseInt(this.$tabScroll.css('left'));
+          var titleWidth = this.$title.width() - buttonSize;
+
+          // If the tab is behind the current scroll position.
+          if (left < scrollPos) {
+            this._tabScrollPos = left - this.LEFT_TAB_BUFFER;
+            if (this._tabScrollPos < 0) {
+              this._tabScrollPos = 0;
             }
-            
-            // engage native contextmenu event
-            $context
-                .on('contextmenu' + o.ns, o.selector, o, handle.contextmenu);
-            
-            if (_hasContext) {
-                // add remove hook, just in case
-                $context.on('remove' + o.ns, function() {
-                    $(this).contextMenu("destroy");
-                });
-            }
-            
-            switch (o.trigger) {
-                case 'hover':
-                        $context
-                            .on('mouseenter' + o.ns, o.selector, o, handle.mouseenter)
-                            .on('mouseleave' + o.ns, o.selector, o, handle.mouseleave);                    
-                    break;
-                    
-                case 'left':
-                        $context.on('click' + o.ns, o.selector, o, handle.click);
-                    break;
-                /*
-                default:
-                    // http://www.quirksmode.org/dom/events/contextmenu.html
-                    $document
-                        .on('mousedown' + o.ns, o.selector, o, handle.mousedown)
-                        .on('mouseup' + o.ns, o.selector, o, handle.mouseup);
-                    break;
-                */
-            }
-            
-            // create menu
-            if (!o.build) {
-                op.create(o);
+          }
+          // If the tab is beyond the current scroll position.
+          else if (right - scrollPos > titleWidth) {
+            this._tabScrollPos = right - titleWidth + this.LEFT_TAB_BUFFER;
+          }
+          break;
+        }
+      }
+    }
+
+    this._canScrollTabs = false;
+    if (totalWidth > this.$title.width() - buttonSize) {
+      this._canScrollTabs = true;
+      this.$frame.append(this.$tabRight);
+      this.$frame.append(this.$tabLeft);
+      var scrollLimit = totalWidth - (this.$title.width() - buttonSize)/2;
+      // If we are beyond our scroll limit, clamp it.
+      if (this._tabScrollPos > scrollLimit) {
+        var children = this.$tabScroll.children();
+        for (var i = 0; i < children.length; ++i) {
+          var $tab = $(children[i]);
+
+          totalWidth = $tab.offset().left - parentLeft;
+          if (totalWidth + $tab.outerWidth() > scrollLimit) {
+            this._tabScrollPos = totalWidth - this.LEFT_TAB_BUFFER;
+            if (this._tabScrollPos < 0) {
+              this._tabScrollPos = 0;
             }
             break;
-        
-        case 'destroy':
-            var $visibleMenu;
-            if (_hasContext) {
-                // get proper options 
-                var context = o.context;
-                $.each(menus, function(ns, o) {
-                    if (o.context !== context) {
-                        return true;
-                    }
-                    
-                    $visibleMenu = $('.context-menu-list').filter(':visible');
-                    if ($visibleMenu.length && $visibleMenu.data().contextMenuRoot.$trigger.is($(o.context).find(o.selector))) {
-                        $visibleMenu.trigger('contextmenu:hide', {force: true});
-                    }
-
-                    try {
-                        if (menus[o.ns].$menu) {
-                            menus[o.ns].$menu.remove();
-                        }
-
-                        delete menus[o.ns];
-                    } catch(e) {
-                        menus[o.ns] = null;
-                    }
-
-                    $(o.context).off(o.ns);
-                    
-                    return true;
-                });
-            } else if (!o.selector) {
-                $document.off('.contextMenu .contextMenuAutoHide');
-                $.each(menus, function(ns, o) {
-                    $(o.context).off(o.ns);
-                });
-                
-                namespaces = {};
-                menus = {};
-                counter = 0;
-                initialized = false;
-                
-                $('#context-menu-layer, .context-menu-list').remove();
-            } else if (namespaces[o.selector]) {
-                $visibleMenu = $('.context-menu-list').filter(':visible');
-                if ($visibleMenu.length && $visibleMenu.data().contextMenuRoot.$trigger.is(o.selector)) {
-                    $visibleMenu.trigger('contextmenu:hide', {force: true});
-                }
-                
-                try {
-                    if (menus[namespaces[o.selector]].$menu) {
-                        menus[namespaces[o.selector]].$menu.remove();
-                    }
-                    
-                    delete menus[namespaces[o.selector]];
-                } catch(e) {
-                    menus[namespaces[o.selector]] = null;
-                }
-                
-                $document.off(namespaces[o.selector]);
-            }
-            break;
-        
-        case 'html5':
-            // if <command> or <menuitem> are not handled by the browser,
-            // or options was a bool true,
-            // initialize $.contextMenu for them
-            if ((!$.support.htmlCommand && !$.support.htmlMenuitem) || (typeof options == "boolean" && options)) {
-                $('menu[type="context"]').each(function() {
-                    if (this.id) {
-                        $.contextMenu({
-                            selector: '[contextmenu=' + this.id +']',
-                            items: $.contextMenu.fromMenu(this)
-                        });
-                    }
-                }).css('display', 'none');
-            }
-            break;
-        
-        default:
-            throw new Error('Unknown operation "' + operation + '"');
+          }
+        }
+      }
+    } else {
+      this._tabScrollPos = 0;
+      this.$tabLeft.remove();
+      this.$tabRight.remove();
     }
-    
-    return this;
-};
 
-// import values into <input> commands
-$.contextMenu.setInputValues = function(opt, data) {
-    if (data === undefined) {
-        data = {};
+    this.$tabScroll.stop().animate({left: -this._tabScrollPos + 'px'}, 'fast');
+  },
+
+  __onTabChange: function() {
+    var buttonSize = 0;
+    var layout = this.layout(this._curTab);
+    if (layout) {
+      this.$center.toggleClass('wcScrollableX', layout._scrollable.x);
+      this.$center.toggleClass('wcScrollableY', layout._scrollable.y);
+      this.$center.toggleClass('wcOverflowVisible', layout._overflowVisible);
+
+      this.$tabLeft.remove();
+      this.$tabRight.remove();
+
+      if (layout._closeable) {
+        this.$frame.append(this.$close);
+        buttonSize += this.$close.outerWidth();
+      } else {
+        this.$close.remove();
+      }
+
+      if (this._canScrollTabs) {
+        this.$frame.append(this.$tabRight);
+        this.$frame.append(this.$tabLeft);
+
+        buttonSize += this.$tabRight.outerWidth() + this.$tabLeft.outerWidth();
+      }
+
+      this.$center.scrollLeft(layout._scroll.x);
+      this.$center.scrollTop(layout._scroll.y);
     }
-    
-    $.each(opt.inputs, function(key, item) {
-        switch (item.type) {
-            case 'text':
-            case 'textarea':
-                item.value = data[key] || "";
-                break;
+    return buttonSize;
+  },
 
-            case 'checkbox':
-                item.selected = data[key] ? true : false;
-                break;
-                
-            case 'radio':
-                item.selected = (data[item.radio] || "") == item.value ? true : false;
-                break;
-            
-            case 'select':
-                item.selected = data[key] || "";
-                break;
-        }
-    });
-};
+  // Handles scroll notifications.
+  __scrolled: function() {
+    var layout = this.layout(this._curTab);
+    layout._scroll.x = this.$center.scrollLeft();
+    layout._scroll.y = this.$center.scrollTop();
+  },
 
-// export values from <input> commands
-$.contextMenu.getInputValues = function(opt, data) {
-    if (data === undefined) {
-        data = {};
+  // Gets, or Sets a new container for this layout.
+  // Params:
+  //    $container          If supplied, sets a new container for this layout.
+  //    parent              If supplied, sets a new parent for this layout.
+  // Returns:
+  //    JQuery collection   The current container.
+  __container: function($container) {
+    if (typeof $container === 'undefined') {
+      return this.$container;
     }
-    
-    $.each(opt.inputs, function(key, item) {
-        switch (item.type) {
-            case 'text':
-            case 'textarea':
-            case 'select':
-                data[key] = item.$input.val();
-                break;
 
-            case 'checkbox':
-                data[key] = item.$input.prop('checked');
-                break;
-                
-            case 'radio':
-                if (item.$input.prop('checked')) {
-                    data[item.radio] = item.value;
-                }
-                break;
-        }
-    });
-    
-    return data;
-};
-
-// find <label for="xyz">
-function inputLabel(node) {
-    return (node.id && $('label[for="'+ node.id +'"]').val()) || node.name;
-}
-
-// convert <menu> to items object
-function menuChildren(items, $children, counter) {
-    if (!counter) {
-        counter = 0;
+    this.$container = $container;
+    if (this.$container) {
+      this.$container.append(this.$frame);
+    } else {
+      this.$frame.remove();
     }
-    
-    $children.each(function() {
-        var $node = $(this),
-            node = this,
-            nodeName = this.nodeName.toLowerCase(),
-            label,
-            item;
-        
-        // extract <label><input>
-        if (nodeName == 'label' && $node.find('input, textarea, select').length) {
-            label = $node.text();
-            $node = $node.children().first();
-            node = $node.get(0);
-            nodeName = node.nodeName.toLowerCase();
-        }
-        
-        /*
-         * <menu> accepts flow-content as children. that means <embed>, <canvas> and such are valid menu items.
-         * Not being the sadistic kind, $.contextMenu only accepts:
-         * <command>, <menuitem>, <hr>, <span>, <p> <input [text, radio, checkbox]>, <textarea>, <select> and of course <menu>.
-         * Everything else will be imported as an html node, which is not interfaced with contextMenu.
-         */
-        
-        // http://www.whatwg.org/specs/web-apps/current-work/multipage/commands.html#concept-command
-        switch (nodeName) {
-            // http://www.whatwg.org/specs/web-apps/current-work/multipage/interactive-elements.html#the-menu-element
-            case 'menu':
-                item = {name: $node.attr('label'), items: {}};
-                counter = menuChildren(item.items, $node.children(), counter);
-                break;
-            
-            // http://www.whatwg.org/specs/web-apps/current-work/multipage/commands.html#using-the-a-element-to-define-a-command
-            case 'a':
-            // http://www.whatwg.org/specs/web-apps/current-work/multipage/commands.html#using-the-button-element-to-define-a-command
-            case 'button':
-                item = {
-                    name: $node.text(),
-                    disabled: !!$node.attr('disabled'),
-                    callback: (function(){ return function(){ $node.click(); }; })()
-                };
-                break;
-            
-            // http://www.whatwg.org/specs/web-apps/current-work/multipage/commands.html#using-the-command-element-to-define-a-command
+    return this.$container;
+  },
 
-            case 'menuitem':
-            case 'command':
-                switch ($node.attr('type')) {
-                    case undefined:
-                    case 'command':
-                    case 'menuitem':
-                        item = {
-                            name: $node.attr('label'),
-                            disabled: !!$node.attr('disabled'),
-                            callback: (function(){ return function(){ $node.click(); }; })()
-                        };
-                        break;
-                        
-                    case 'checkbox':
-                        item = {
-                            type: 'checkbox',
-                            disabled: !!$node.attr('disabled'),
-                            name: $node.attr('label'),
-                            selected: !!$node.attr('checked')
-                        };
-                        break;
-                        
-                    case 'radio':
-                        item = {
-                            type: 'radio',
-                            disabled: !!$node.attr('disabled'),
-                            name: $node.attr('label'),
-                            radio: $node.attr('radiogroup'),
-                            value: $node.attr('id'),
-                            selected: !!$node.attr('checked')
-                        };
-                        break;
-                        
-                    default:
-                        item = undefined;
-                }
-                break;
- 
-            case 'hr':
-                item = '-------';
-                break;
-                
-            case 'input':
-                switch ($node.attr('type')) {
-                    case 'text':
-                        item = {
-                            type: 'text',
-                            name: label || inputLabel(node),
-                            disabled: !!$node.attr('disabled'),
-                            value: $node.val()
-                        };
-                        break;
-                        
-                    case 'checkbox':
-                        item = {
-                            type: 'checkbox',
-                            name: label || inputLabel(node),
-                            disabled: !!$node.attr('disabled'),
-                            selected: !!$node.attr('checked')
-                        };
-                        break;
-                        
-                    case 'radio':
-                        item = {
-                            type: 'radio',
-                            name: label || inputLabel(node),
-                            disabled: !!$node.attr('disabled'),
-                            radio: !!$node.attr('name'),
-                            value: $node.val(),
-                            selected: !!$node.attr('checked')
-                        };
-                        break;
-                    
-                    default:
-                        item = undefined;
-                        break;
-                }
-                break;
-                
-            case 'select':
-                item = {
-                    type: 'select',
-                    name: label || inputLabel(node),
-                    disabled: !!$node.attr('disabled'),
-                    selected: $node.val(),
-                    options: {}
-                };
-                $node.children().each(function(){
-                    item.options[this.value] = $(this).text();
-                });
-                break;
-                
-            case 'textarea':
-                item = {
-                    type: 'textarea',
-                    name: label || inputLabel(node),
-                    disabled: !!$node.attr('disabled'),
-                    value: $node.val()
-                };
-                break;
-            
-            case 'label':
-                break;
-            
-            default:
-                item = {type: 'html', html: $node.clone(true)};
-                break;
-        }
-        
-        if (item) {
-            counter++;
-            items['key' + counter] = item;
-        }
-    });
-    
-    return counter;
-}
+  // Disconnects and prepares this widget for destruction.
+  __destroy: function() {
+    this._curTab = -1;
+    for (var i = 0; i < this._layoutList.length; ++i) {
+      this._layoutList[i].__destroy();
+    }
 
-// convert html5 menu
-$.contextMenu.fromMenu = function(element) {
-    var $this = $(element),
-        items = {};
-        
-    menuChildren(items, $this.children());
-    
-    return items;
+    while (this._layoutList.length) this._layoutList.pop();
+    this.__container(null);
+    this._parent = null;
+  },
 };
-
-// make defaults accessible
-$.contextMenu.defaults = defaults;
-$.contextMenu.types = types;
-// export internal functions - undocumented, for hacking only!
-$.contextMenu.handle = handle;
-$.contextMenu.op = op;
-$.contextMenu.menus = menus;
-
-})(jQuery);
-
-/*!
- * jQuery UI Position v1.10.0
- * http://jqueryui.com
- *
- * Copyright 2013 jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- *
- * http://api.jqueryui.com/position/
- */
-(function( $, undefined ) {
-
-$.ui = $.ui || {};
-
-var cachedScrollbarWidth,
-	max = Math.max,
-	abs = Math.abs,
-	round = Math.round,
-	rhorizontal = /left|center|right/,
-	rvertical = /top|center|bottom/,
-	roffset = /[\+\-]\d+%?/,
-	rposition = /^\w+/,
-	rpercent = /%$/,
-	_position = $.fn.position;
-
-function getOffsets( offsets, width, height ) {
-	return [
-		parseInt( offsets[ 0 ], 10 ) * ( rpercent.test( offsets[ 0 ] ) ? width / 100 : 1 ),
-		parseInt( offsets[ 1 ], 10 ) * ( rpercent.test( offsets[ 1 ] ) ? height / 100 : 1 )
-	];
-}
-
-function parseCss( element, property ) {
-	return parseInt( $.css( element, property ), 10 ) || 0;
-}
-
-function getDimensions( elem ) {
-	var raw = elem[0];
-	if ( raw.nodeType === 9 ) {
-		return {
-			width: elem.width(),
-			height: elem.height(),
-			offset: { top: 0, left: 0 }
-		};
-	}
-	if ( $.isWindow( raw ) ) {
-		return {
-			width: elem.width(),
-			height: elem.height(),
-			offset: { top: elem.scrollTop(), left: elem.scrollLeft() }
-		};
-	}
-	if ( raw.preventDefault ) {
-		return {
-			width: 0,
-			height: 0,
-			offset: { top: raw.pageY, left: raw.pageX }
-		};
-	}
-	return {
-		width: elem.outerWidth(),
-		height: elem.outerHeight(),
-		offset: elem.offset()
-	};
-}
-
-$.position = {
-	scrollbarWidth: function() {
-		if ( cachedScrollbarWidth !== undefined ) {
-			return cachedScrollbarWidth;
-		}
-		var w1, w2,
-			div = $( "<div style='display:block;width:50px;height:50px;overflow:hidden;'><div style='height:100px;width:auto;'></div></div>" ),
-			innerDiv = div.children()[0];
-
-		$( "body" ).append( div );
-		w1 = innerDiv.offsetWidth;
-		div.css( "overflow", "scroll" );
-
-		w2 = innerDiv.offsetWidth;
-
-		if ( w1 === w2 ) {
-			w2 = div[0].clientWidth;
-		}
-
-		div.remove();
-
-		return (cachedScrollbarWidth = w1 - w2);
-	},
-	getScrollInfo: function( within ) {
-		var overflowX = within.isWindow ? "" : within.element.css( "overflow-x" ),
-			overflowY = within.isWindow ? "" : within.element.css( "overflow-y" ),
-			hasOverflowX = overflowX === "scroll" ||
-				( overflowX === "auto" && within.width < within.element[0].scrollWidth ),
-			hasOverflowY = overflowY === "scroll" ||
-				( overflowY === "auto" && within.height < within.element[0].scrollHeight );
-		return {
-			width: hasOverflowX ? $.position.scrollbarWidth() : 0,
-			height: hasOverflowY ? $.position.scrollbarWidth() : 0
-		};
-	},
-	getWithinInfo: function( element ) {
-		var withinElement = $( element || window ),
-			isWindow = $.isWindow( withinElement[0] );
-		return {
-			element: withinElement,
-			isWindow: isWindow,
-			offset: withinElement.offset() || { left: 0, top: 0 },
-			scrollLeft: withinElement.scrollLeft(),
-			scrollTop: withinElement.scrollTop(),
-			width: isWindow ? withinElement.width() : withinElement.outerWidth(),
-			height: isWindow ? withinElement.height() : withinElement.outerHeight()
-		};
-	}
-};
-
-$.fn.position = function( options ) {
-	if ( !options || !options.of ) {
-		return _position.apply( this, arguments );
-	}
-
-	// make a copy, we don't want to modify arguments
-	options = $.extend( {}, options );
-
-	var atOffset, targetWidth, targetHeight, targetOffset, basePosition, dimensions,
-		target = $( options.of ),
-		within = $.position.getWithinInfo( options.within ),
-		scrollInfo = $.position.getScrollInfo( within ),
-		collision = ( options.collision || "flip" ).split( " " ),
-		offsets = {};
-
-	dimensions = getDimensions( target );
-	if ( target[0].preventDefault ) {
-		// force left top to allow flipping
-		options.at = "left top";
-	}
-	targetWidth = dimensions.width;
-	targetHeight = dimensions.height;
-	targetOffset = dimensions.offset;
-	// clone to reuse original targetOffset later
-	basePosition = $.extend( {}, targetOffset );
-
-	// force my and at to have valid horizontal and vertical positions
-	// if a value is missing or invalid, it will be converted to center
-	$.each( [ "my", "at" ], function() {
-		var pos = ( options[ this ] || "" ).split( " " ),
-			horizontalOffset,
-			verticalOffset;
-
-		if ( pos.length === 1) {
-			pos = rhorizontal.test( pos[ 0 ] ) ?
-				pos.concat( [ "center" ] ) :
-				rvertical.test( pos[ 0 ] ) ?
-					[ "center" ].concat( pos ) :
-					[ "center", "center" ];
-		}
-		pos[ 0 ] = rhorizontal.test( pos[ 0 ] ) ? pos[ 0 ] : "center";
-		pos[ 1 ] = rvertical.test( pos[ 1 ] ) ? pos[ 1 ] : "center";
-
-		// calculate offsets
-		horizontalOffset = roffset.exec( pos[ 0 ] );
-		verticalOffset = roffset.exec( pos[ 1 ] );
-		offsets[ this ] = [
-			horizontalOffset ? horizontalOffset[ 0 ] : 0,
-			verticalOffset ? verticalOffset[ 0 ] : 0
-		];
-
-		// reduce to just the positions without the offsets
-		options[ this ] = [
-			rposition.exec( pos[ 0 ] )[ 0 ],
-			rposition.exec( pos[ 1 ] )[ 0 ]
-		];
-	});
-
-	// normalize collision option
-	if ( collision.length === 1 ) {
-		collision[ 1 ] = collision[ 0 ];
-	}
-
-	if ( options.at[ 0 ] === "right" ) {
-		basePosition.left += targetWidth;
-	} else if ( options.at[ 0 ] === "center" ) {
-		basePosition.left += targetWidth / 2;
-	}
-
-	if ( options.at[ 1 ] === "bottom" ) {
-		basePosition.top += targetHeight;
-	} else if ( options.at[ 1 ] === "center" ) {
-		basePosition.top += targetHeight / 2;
-	}
-
-	atOffset = getOffsets( offsets.at, targetWidth, targetHeight );
-	basePosition.left += atOffset[ 0 ];
-	basePosition.top += atOffset[ 1 ];
-
-	return this.each(function() {
-		var collisionPosition, using,
-			elem = $( this ),
-			elemWidth = elem.outerWidth(),
-			elemHeight = elem.outerHeight(),
-			marginLeft = parseCss( this, "marginLeft" ),
-			marginTop = parseCss( this, "marginTop" ),
-			collisionWidth = elemWidth + marginLeft + parseCss( this, "marginRight" ) + scrollInfo.width,
-			collisionHeight = elemHeight + marginTop + parseCss( this, "marginBottom" ) + scrollInfo.height,
-			position = $.extend( {}, basePosition ),
-			myOffset = getOffsets( offsets.my, elem.outerWidth(), elem.outerHeight() );
-
-		if ( options.my[ 0 ] === "right" ) {
-			position.left -= elemWidth;
-		} else if ( options.my[ 0 ] === "center" ) {
-			position.left -= elemWidth / 2;
-		}
-
-		if ( options.my[ 1 ] === "bottom" ) {
-			position.top -= elemHeight;
-		} else if ( options.my[ 1 ] === "center" ) {
-			position.top -= elemHeight / 2;
-		}
-
-		position.left += myOffset[ 0 ];
-		position.top += myOffset[ 1 ];
-
-		// if the browser doesn't support fractions, then round for consistent results
-		if ( !$.support.offsetFractions ) {
-			position.left = round( position.left );
-			position.top = round( position.top );
-		}
-
-		collisionPosition = {
-			marginLeft: marginLeft,
-			marginTop: marginTop
-		};
-
-		$.each( [ "left", "top" ], function( i, dir ) {
-			if ( $.ui.position[ collision[ i ] ] ) {
-				$.ui.position[ collision[ i ] ][ dir ]( position, {
-					targetWidth: targetWidth,
-					targetHeight: targetHeight,
-					elemWidth: elemWidth,
-					elemHeight: elemHeight,
-					collisionPosition: collisionPosition,
-					collisionWidth: collisionWidth,
-					collisionHeight: collisionHeight,
-					offset: [ atOffset[ 0 ] + myOffset[ 0 ], atOffset [ 1 ] + myOffset[ 1 ] ],
-					my: options.my,
-					at: options.at,
-					within: within,
-					elem : elem
-				});
-			}
-		});
-
-		if ( options.using ) {
-			// adds feedback as second argument to using callback, if present
-			using = function( props ) {
-				var left = targetOffset.left - position.left,
-					right = left + targetWidth - elemWidth,
-					top = targetOffset.top - position.top,
-					bottom = top + targetHeight - elemHeight,
-					feedback = {
-						target: {
-							element: target,
-							left: targetOffset.left,
-							top: targetOffset.top,
-							width: targetWidth,
-							height: targetHeight
-						},
-						element: {
-							element: elem,
-							left: position.left,
-							top: position.top,
-							width: elemWidth,
-							height: elemHeight
-						},
-						horizontal: right < 0 ? "left" : left > 0 ? "right" : "center",
-						vertical: bottom < 0 ? "top" : top > 0 ? "bottom" : "middle"
-					};
-				if ( targetWidth < elemWidth && abs( left + right ) < targetWidth ) {
-					feedback.horizontal = "center";
-				}
-				if ( targetHeight < elemHeight && abs( top + bottom ) < targetHeight ) {
-					feedback.vertical = "middle";
-				}
-				if ( max( abs( left ), abs( right ) ) > max( abs( top ), abs( bottom ) ) ) {
-					feedback.important = "horizontal";
-				} else {
-					feedback.important = "vertical";
-				}
-				options.using.call( this, props, feedback );
-			};
-		}
-
-		elem.offset( $.extend( position, { using: using } ) );
-	});
-};
-
-$.ui.position = {
-	fit: {
-		left: function( position, data ) {
-			var within = data.within,
-				withinOffset = within.isWindow ? within.scrollLeft : within.offset.left,
-				outerWidth = within.width,
-				collisionPosLeft = position.left - data.collisionPosition.marginLeft,
-				overLeft = withinOffset - collisionPosLeft,
-				overRight = collisionPosLeft + data.collisionWidth - outerWidth - withinOffset,
-				newOverRight;
-
-			// element is wider than within
-			if ( data.collisionWidth > outerWidth ) {
-				// element is initially over the left side of within
-				if ( overLeft > 0 && overRight <= 0 ) {
-					newOverRight = position.left + overLeft + data.collisionWidth - outerWidth - withinOffset;
-					position.left += overLeft - newOverRight;
-				// element is initially over right side of within
-				} else if ( overRight > 0 && overLeft <= 0 ) {
-					position.left = withinOffset;
-				// element is initially over both left and right sides of within
-				} else {
-					if ( overLeft > overRight ) {
-						position.left = withinOffset + outerWidth - data.collisionWidth;
-					} else {
-						position.left = withinOffset;
-					}
-				}
-			// too far left -> align with left edge
-			} else if ( overLeft > 0 ) {
-				position.left += overLeft;
-			// too far right -> align with right edge
-			} else if ( overRight > 0 ) {
-				position.left -= overRight;
-			// adjust based on position and margin
-			} else {
-				position.left = max( position.left - collisionPosLeft, position.left );
-			}
-		},
-		top: function( position, data ) {
-			var within = data.within,
-				withinOffset = within.isWindow ? within.scrollTop : within.offset.top,
-				outerHeight = data.within.height,
-				collisionPosTop = position.top - data.collisionPosition.marginTop,
-				overTop = withinOffset - collisionPosTop,
-				overBottom = collisionPosTop + data.collisionHeight - outerHeight - withinOffset,
-				newOverBottom;
-
-			// element is taller than within
-			if ( data.collisionHeight > outerHeight ) {
-				// element is initially over the top of within
-				if ( overTop > 0 && overBottom <= 0 ) {
-					newOverBottom = position.top + overTop + data.collisionHeight - outerHeight - withinOffset;
-					position.top += overTop - newOverBottom;
-				// element is initially over bottom of within
-				} else if ( overBottom > 0 && overTop <= 0 ) {
-					position.top = withinOffset;
-				// element is initially over both top and bottom of within
-				} else {
-					if ( overTop > overBottom ) {
-						position.top = withinOffset + outerHeight - data.collisionHeight;
-					} else {
-						position.top = withinOffset;
-					}
-				}
-			// too far up -> align with top
-			} else if ( overTop > 0 ) {
-				position.top += overTop;
-			// too far down -> align with bottom edge
-			} else if ( overBottom > 0 ) {
-				position.top -= overBottom;
-			// adjust based on position and margin
-			} else {
-				position.top = max( position.top - collisionPosTop, position.top );
-			}
-		}
-	},
-	flip: {
-		left: function( position, data ) {
-			var within = data.within,
-				withinOffset = within.offset.left + within.scrollLeft,
-				outerWidth = within.width,
-				offsetLeft = within.isWindow ? within.scrollLeft : within.offset.left,
-				collisionPosLeft = position.left - data.collisionPosition.marginLeft,
-				overLeft = collisionPosLeft - offsetLeft,
-				overRight = collisionPosLeft + data.collisionWidth - outerWidth - offsetLeft,
-				myOffset = data.my[ 0 ] === "left" ?
-					-data.elemWidth :
-					data.my[ 0 ] === "right" ?
-						data.elemWidth :
-						0,
-				atOffset = data.at[ 0 ] === "left" ?
-					data.targetWidth :
-					data.at[ 0 ] === "right" ?
-						-data.targetWidth :
-						0,
-				offset = -2 * data.offset[ 0 ],
-				newOverRight,
-				newOverLeft;
-
-			if ( overLeft < 0 ) {
-				newOverRight = position.left + myOffset + atOffset + offset + data.collisionWidth - outerWidth - withinOffset;
-				if ( newOverRight < 0 || newOverRight < abs( overLeft ) ) {
-					position.left += myOffset + atOffset + offset;
-				}
-			}
-			else if ( overRight > 0 ) {
-				newOverLeft = position.left - data.collisionPosition.marginLeft + myOffset + atOffset + offset - offsetLeft;
-				if ( newOverLeft > 0 || abs( newOverLeft ) < overRight ) {
-					position.left += myOffset + atOffset + offset;
-				}
-			}
-		},
-		top: function( position, data ) {
-			var within = data.within,
-				withinOffset = within.offset.top + within.scrollTop,
-				outerHeight = within.height,
-				offsetTop = within.isWindow ? within.scrollTop : within.offset.top,
-				collisionPosTop = position.top - data.collisionPosition.marginTop,
-				overTop = collisionPosTop - offsetTop,
-				overBottom = collisionPosTop + data.collisionHeight - outerHeight - offsetTop,
-				top = data.my[ 1 ] === "top",
-				myOffset = top ?
-					-data.elemHeight :
-					data.my[ 1 ] === "bottom" ?
-						data.elemHeight :
-						0,
-				atOffset = data.at[ 1 ] === "top" ?
-					data.targetHeight :
-					data.at[ 1 ] === "bottom" ?
-						-data.targetHeight :
-						0,
-				offset = -2 * data.offset[ 1 ],
-				newOverTop,
-				newOverBottom;
-			if ( overTop < 0 ) {
-				newOverBottom = position.top + myOffset + atOffset + offset + data.collisionHeight - outerHeight - withinOffset;
-				if ( ( position.top + myOffset + atOffset + offset) > overTop && ( newOverBottom < 0 || newOverBottom < abs( overTop ) ) ) {
-					position.top += myOffset + atOffset + offset;
-				}
-			}
-			else if ( overBottom > 0 ) {
-				newOverTop = position.top -  data.collisionPosition.marginTop + myOffset + atOffset + offset - offsetTop;
-				if ( ( position.top + myOffset + atOffset + offset) > overBottom && ( newOverTop > 0 || abs( newOverTop ) < overBottom ) ) {
-					position.top += myOffset + atOffset + offset;
-				}
-			}
-		}
-	},
-	flipfit: {
-		left: function() {
-			$.ui.position.flip.left.apply( this, arguments );
-			$.ui.position.fit.left.apply( this, arguments );
-		},
-		top: function() {
-			$.ui.position.flip.top.apply( this, arguments );
-			$.ui.position.fit.top.apply( this, arguments );
-		}
-	}
-};
-
-// fraction support test
-(function () {
-	var testElement, testElementParent, testElementStyle, offsetLeft, i,
-		body = document.getElementsByTagName( "body" )[ 0 ],
-		div = document.createElement( "div" );
-
-	//Create a "fake body" for testing based on method used in jQuery.support
-	testElement = document.createElement( body ? "div" : "body" );
-	testElementStyle = {
-		visibility: "hidden",
-		width: 0,
-		height: 0,
-		border: 0,
-		margin: 0,
-		background: "none"
-	};
-	if ( body ) {
-		$.extend( testElementStyle, {
-			position: "absolute",
-			left: "-1000px",
-			top: "-1000px"
-		});
-	}
-	for ( i in testElementStyle ) {
-		testElement.style[ i ] = testElementStyle[ i ];
-	}
-	testElement.appendChild( div );
-	testElementParent = body || document.documentElement;
-	testElementParent.insertBefore( testElement, testElementParent.firstChild );
-
-	div.style.cssText = "position: absolute; left: 10.7432222px;";
-
-	offsetLeft = $( div ).offset().left;
-	$.support.offsetFractions = offsetLeft > 10 && offsetLeft < 11;
-
-	testElement.innerHTML = "";
-	testElementParent.removeChild( testElement );
-})();
-
-}( jQuery ) );

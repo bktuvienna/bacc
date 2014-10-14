@@ -1,13 +1,11 @@
 #vis{
 	background-color:#fff;
 }
-
 .axis path, axis line {
 	fill:none;
 	stroke:#000;
 	shape-rendering:crispEdges;
 }
-
 circle{
 	pointer-events:auto;
 }

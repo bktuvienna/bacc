@@ -9,36 +9,88 @@ Please share your project with us that uses wcDocker!
 * Panels can be created, closed, moved, resized, and groupped together.
 * Panels can be detached from a dock position to float on their own, and then dock again.
 * Panels can include their own custom buttons in their upper-right area.
+* Panel buttons and tabs can contain their own icon image.
 * Panel configurations can be saved, then later restored.
 * Multiple panels of the same type can be created.
 * Built in context menu system with standard panel options as well as custom ones.
 * Event system for intercommunication between panels as well as to react on panel change events.
 * Allow styling of window colors and other options by using themed css files.
-
-### The following features could possibly be developed next: ###
-* The ability for floating windows to be a true window, and therefore leave the bounds of the page.
-* An option of restricting the number of total panels created.
-* An option of restricting the total copies of the same panel type.
+* Re-use the internal splitter within your own panels.
 
 ****
 ### Change Log ###
-#### Version: Beta ####
-* Compatibility with IE8.
-* You can now add custom buttons that appear in the panels title bar.
-* Ability to batch together a large number of elements being added to a layout to minimize reflow.
-* Events can now be applied to the main docker, rather than only panels.
-* Ability to retrieve layout table items from a specified grid location.
-* Ability to set the layouts grid spacing size.
-* Ability to alternate the layout row colors.
-* Layout save and restore now generate a string instead of a data object due to a bug with the default JSON stringify not converting the object properly.
+#### Version: Trunk ####
+- Fixed issue with using normal CSS icons in the context menu.
+- Improved auto scrolling of tab items when clicked.
+- Created a new wcCustomTabs object for creating docker styled tab areas inside a panel.
+- Floating panels can now be modal.
+
+#### Version: 2.1.0 ####
+- wcDocker now has Bower support for easy package management.
+- wcSplitter is now usable inside a panel.
+- Improved performance of panel resizing.
+- wcPanel.focus() now actually sets itself as the current active tab.
+- wcDocker.registerPanelType() has a new option {limit: Number} that limits the total number of copies for this panel.
+- New event type wcDocker.EVENT_VISIBILITY_CHANGED, triggered whenever the panel gains or loses visibility.  Use wcPanel.isVisible() to retrieve the current state.
+- Reduced DOM changes during tab change and resize.
+- New event types wcDocker.EVENT_BEGIN_DOCK and wcDocker.EVENT_END_DOCK that trigger whenever the user is dragging a panel to a new location.
+- New event types wcDocker.EVENT_GAIN_FOCUS and wcDocker.EVENT_LOST_FOCUS that trigger whenever a panel is brought it and out of focus.
+- Floating panels no longer change size whenever a new panel is added to it as a tab.
+
+#### Version: 2.0.0 ####
+- Layout grid can now have a spacing size.
+- Layout grid can now be set to alternating row color.
+- wcLayout.item() added to retrieve an already existing item in the layout.
+- wcDocker can now send and receive events.
+- wcLayout can now batch large numbers of elements added without page refreshing between each.
+- wcPanel can now contain custom buttons that appear within the title bar.
+- wcDocker.basicMenu() now has an option to include the default menu options along with your custom ones.
+- wcDocker.basicMenu() can now accept a dynamic callback function that returns custom menu's at the time of the event.
+- New events added for resize start, resize end, move start, and move end.
+- Panels can now be set to hide their contents whenever they are resized.
+- wcDocker constructor now takes an options object.
+- wcDocker now has an option to disable the default context menu.
+- Panel tabs are now scrollable.
+- Icons are now supported using regular CSS or the Font-Awesome library [http://fortawesome.github.io/Font-Awesome/](http://fortawesome.github.io/Font-Awesome/).
+- wcDocker.registerPanelType() can now take an options object instead of just a single callback.
+- Fixed layout save/restore.
+- Fixed layout clear not actually removing elements.
+- Fixed compatibility with IE8.
+- Fixed tabs disappearing when the panel is too small to fit them.
 
 ****
-# Dependancies #
+# Dependencies #
 
 * JQuery Library version 1.11.1 [http://jquery.com/](http://jquery.com/)
-* Custom version of JQuery ContextMenu Library [https://github.com/medialize/jQuery-contextMenu](https://github.com/medialize/jQuery-contextMenu)
+* JQuery ContextMenu Library [https://github.com/medialize/jQuery-contextMenu](https://github.com/medialize/jQuery-contextMenu)
+* Font-Awesome [http://fortawesome.github.io/Font-Awesome/](http://fortawesome.github.io/Font-Awesome/)
 
-If you use the pre-built packages wcDocker.js or wcDocker.min.js then the contextMenu library is embedded into it already.
+****
+# Installation #
+
+wcDocker now uses [bower](http://bower.io/) for easy installation.  You can install bower using `npm`:
+```
+npm install -g bower
+```
+
+This command will install bower *globally*, from there you can install wcDocker with the following command:  
+```
+bower install wcdocker
+```
+
+Once installed, all of the source files will now be located in the `bower_components` folder and ready to link into your project:
+```
+<link rel="stylesheet" type="text/css" href="bower_components/jQuery-contextMenu/src/jquery.contextMenu.css"/>
+<link rel="stylesheet" type="text/css" href="bower_components/font-awesome/css/font-awesome.css"/>
+<link rel="stylesheet" type="text/css" href="bower_components/wcdocker/Build/wcDocker.min.css"/>
+
+<script src="bower_components/jquery/dist/jquery.min.js"></script>
+<script src="bower_components/jQuery-contextMenu/src/jquery.contextMenu.js"></script>
+<script src="bower_components/jQuery-contextMenu/src/jquery.ui.position.js"></script>
+<script src="bower_components/wcdocker/Build/wcDocker.min.js"></script>
+```
+
+You may also include any of the optional css themes found in the `bower_components/wcdocker/Build/Themes/` folder.    
 
 ****
 # Basic Implementation #

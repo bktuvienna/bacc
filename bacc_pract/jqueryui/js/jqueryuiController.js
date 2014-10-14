@@ -29,7 +29,8 @@ $(document).ready(function(){
 	var wBC=$('.outer-west').width()-10;
 	var hBC=$('.outer-west').height()-50;
 	refreshScatterPlot(wSP,hSP);
-	refreshBarChart(wBC,hBC);	
+	refreshBarChart(wBC,hBC);
+	refreshValueTable();
 });
 
 
