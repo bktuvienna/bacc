@@ -13,6 +13,9 @@ $(document).ready(function() {
 			faicon: 'qrcode',
 			onCreate: function(myPanel){
 			myPanel.layout().addItem($('<div id="values"><div id="barchart"></div></div>'));
+			myPanel.on(wcDocker.EVENT_MOVED, function(){
+				alert('Values view was moved');
+			});			
 			myPanel.initSize(250,400);
 			}
 		});
@@ -31,7 +34,7 @@ $(document).ready(function() {
 		});
 		
 		myDocker.registerPanelType('Console', function(myPanel){
-			myPanel.layout().addItem($('<div id="console"><button id="savestate">Save Layout</button><button id="loadstate">Load Layout</button><br><br>Right click opens a context menu (either in a panel or on a tab for a panel)<br><br>the Values tab has an icon left to its title<br><br>Scatterplot view can only exist once, whereas all other views can be created multiple times</div>'),0,0);
+			myPanel.layout().addItem($('<div id="console"><button id="savestate">Save Layout</button><button id="loadstate">Load Layout</button><br><br>Right click opens a context menu (either in a panel or on a tab for a panel)<br><br>the Values tab has an icon left to its title<br><br>Scatterplot view can only exist once, whereas all other views can be created multiple times<br><br>moving the values view triggers an alert</div>'),0,0);
 			myPanel.layout().addItem($('<div id="griddemo">and there is the possibility for a grid layout in each panel</div>'),1,0);
 			myPanel.layout().showGrid(true);
 			myPanel.layout().gridSpacing(2);
