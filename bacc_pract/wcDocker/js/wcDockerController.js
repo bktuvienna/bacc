@@ -8,14 +8,21 @@ $(document).ready(function() {
 		var layoutConfiguration;
 		var currentTheme = 'Default';
 		
-		myDocker.registerPanelType('Values', function(myPanel){
+		//registering of panels, refreshing necessary if panel gets closed and inserted again
+		myDocker.registerPanelType('Values', {
+			faicon: 'qrcode',
+			onCreate: function(myPanel){
 			myPanel.layout().addItem($('<div id="values"><div id="barchart"></div></div>'));
 			myPanel.initSize(250,400);
+			}
 		});
 		
-		myDocker.registerPanelType('Scatterplot', function(myPanel){
+		myDocker.registerPanelType('Scatterplot', {
+			limit:1,
+			onCreate: function(myPanel){
 			myPanel.layout().addItem($('<div id="scatterplot"><div id="vis"></div></div>'));
 			myPanel.initSize(1000,100);
+			}
 		});
 		
 		myDocker.registerPanelType('Output', function(myPanel){
@@ -24,7 +31,11 @@ $(document).ready(function() {
 		});
 		
 		myDocker.registerPanelType('Console', function(myPanel){
-			myPanel.layout().addItem($('<div id="console"><button id="savestate">Save Layout</button><button id="loadstate">Load Layout</button><br><br>Right click opens a context menu (either in a panel or on a tab for a panel)</div>'));
+			myPanel.layout().addItem($('<div id="console"><button id="savestate">Save Layout</button><button id="loadstate">Load Layout</button><br><br>Right click opens a context menu (either in a panel or on a tab for a panel)<br><br>the Values tab has an icon left to its title<br><br>Scatterplot view can only exist once, whereas all other views can be created multiple times</div>'),0,0);
+			myPanel.layout().addItem($('<div id="griddemo">and there is the possibility for a grid layout in each panel</div>'),1,0);
+			myPanel.layout().showGrid(true);
+			myPanel.layout().gridSpacing(2);
+			myPanel.layout().gridAlternate(true);
 			myPanel.initSize(400,200);
 		});
 		
@@ -62,8 +73,11 @@ $(document).ready(function() {
 var refreshContent = function(){
 	$('#output').width($('#output').parent().width());
 	$('#output').height($('#output').parent().height());
-	$('#console').width($('#console').parent().width());
+	var conswidth=$('#console').width($('#console').parent().width());
 	$('#console').height($('#console').parent().height());
+	$('#griddemo').height($('#griddemo').parent().height());
+	$('#griddemo').width($('#griddemo').parent().width()-conswidth);
+	
 	
 	var wSP = $('#scatterplot').parent().width()-100;
 	var hSP = $('#scatterplot').parent().height()-60;
