@@ -12,7 +12,7 @@ var dataset = [
                   [ 150,    80, "value9" ],
                   [ 120,    50, "value10" ]
               ];
-var $prevClicked=null;
+var $prevClicked;
 //updates scatterplot and draws initial scatterplot
 var refreshScatterPlot = function(w,h){	
 	var xValue = function(d){return d[0];},
@@ -70,7 +70,24 @@ var refreshScatterPlot = function(w,h){
 	})
 	.attr("class",function(d){return d[2]})
 	.attr("r", 5)
-	.style("fill",function(d){return color(cValue(d));});
+	.style("fill",function(d){return color(cValue(d));})
+	.on('mousedown',function(d){
+		//changing radius of circle and highlighting value in table on click of circle
+		//saving the previous clicked circle to reset it on the next click
+		if($prevClicked){
+			$prevClicked
+			.attr("r",5);
+		}
+		$prevClicked = d3.select(this);
+		
+		//highlight values in tables and barcharts
+		highlightValue(zValue(d),color(cValue(d)));
+		highlightBars(zValue(d),color(cValue(d)));
+		
+		//increasing radius of clicked circle
+		d3.select(this)
+		.attr("r",10);
+	});
 	/*.on('mousedown',function(d){
 		if($prevClicked!=null){
 			

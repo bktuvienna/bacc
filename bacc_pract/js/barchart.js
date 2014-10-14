@@ -1,5 +1,5 @@
 //adapted source from http://bost.ocks.org/mike/bar/
-
+var currentBar;
 var refreshBarChart = function(w,h){
 	
 	var barHeight=45;
@@ -8,6 +8,7 @@ var refreshBarChart = function(w,h){
 	})
 	var xValue = function(d){return d[0]*scaleFactor};	
 	var yValue = function(d){return d[1]*scaleFactor};
+	var zValue = function(d){return d[2]};
 	var cValue = function(d) { return d[0];}, color = d3.scale.category10();
 	
 	var svg=d3.select("#barchart");
@@ -26,12 +27,26 @@ var refreshBarChart = function(w,h){
 		.attr("class","x")
 		.attr("width",xValue)
 		.attr("height",barHeight/2-1)
-		.style("fill","steelblue");
+		.style("fill","black")
+		.style("opacity",0.6);
 		
 	bar.append("rect")
 		.attr("class","y")
 		.attr("width",yValue)
 		.attr("height",barHeight/2-1)
 		.attr("transform","translate(0,"+barHeight/2+")")
-		.style("fill","darkred");
-}	
+		.style("fill","black")
+		.style("opacity",0.6);
+}
+
+var highlightBars = function(value,color){
+	if(currentBar){
+		d3.select('.'+currentBar+' .x').style("fill","black");
+		d3.select('.'+currentBar+' .y').style("fill","black");
+	}
+	currentBar = value;
+	var barx = d3.select('.'+value+' .x');
+	barx.style("fill",color);
+	var bary = d3.select('.'+value+' .y');
+	bary.style("fill",color);
+}
