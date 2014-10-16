@@ -81,13 +81,13 @@ var refreshContent = function(){
 	$('#griddemo').height($('#griddemo').parent().height());
 	$('#griddemo').width($('#griddemo').parent().width()-conswidth);
 	
-	
-	var wSP = $('#scatterplot').parent().width()-100;
-	var hSP = $('#scatterplot').parent().height()-60;
+	var margin = {top: 15, right: 30, bottom: 75, left: 40};
+	var wSP = $('#scatterplot').parent().width()-margin.left-margin.right;
+	var hSP = $('#scatterplot').parent().height()-margin.top-margin.bottom;
 	var wBC = $('#values').parent().width();
 	var hBC = $('#values').parent().height()-40;
 		
-	refreshScatterPlot(wSP,hSP);
+	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
 }

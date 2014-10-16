@@ -44,9 +44,22 @@
 				<div>Scatterplot</div>
 				<div id="scatterplot"><div id="vis"></div></div>
 			</div>
-			<div id="window3" style="height:15%">
+			<div id="window3" style="height:20%">
 				<div>Console</div>
-				<div></div>
+				<div id="console">
+					<div id="features">
+					<button id="save">Save Layout</button>
+					<button id="load">Load Layout</button><br><br>
+					<button id="enable">Enable Docking</button>
+					<button id="disable">Disable Docking</button><br><br>
+					<button id="mode">Value view is in mode:<span id="currentmode"></span></button><br><br>
+					The values view can be collapsed by clicking on the arrow in the titlebar of the view<br><br>
+					moving a view triggers an alert<br><br>
+					PROBLEMS of jqwidgets:<br><br>
+					disabling disables all features not just docking<br><br>
+					resizing is just possible when view is floating (switch mode button to floating to try)
+					</div>
+				</div>
 			</div>
 		</div>
 		<div style="width:15%">

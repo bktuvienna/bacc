@@ -26,32 +26,33 @@ window.onload = function() {
 	var outputNode = dockManager.dockRight(scatterplotNode,output,0.15);
 
 	//updating dataset and scatterplot depending on input values
-	var wSP = $('#scatterplot').width()-50;
-	var hSP = $('#scatterplot').height()-50;
+	var margin = {top: 15, right: 15, bottom: 30, left: 40};
+	var wSP = $('#scatterplot').width()-margin.left-margin.right;
+	var hSP = $('#scatterplot').height()-margin.top-margin.bottom;
 	var wBC = $('#barchart').width();
 	var hBC = $('#values').height();
 	
-	var json = null;
+	var json;
 	
 	$("#savestate").on('click',function(){
 		json = dockManager.saveState();	
 	});
 	
 	$("#loadstate").on('click',function(){
-		if(json!="")
+		if(json)
 			dockManager.loadState(json);
 		else
 			alert("You have to save a state before loading!");
 	});
 	
 	//workaround for panels under the visualization (resizing of svg element in vis element)
-	$(window).mouseup(function(){
+	/*$(window).mouseup(function(){
 		$('#vis').empty();
-		wSP = $('#scatterplot').width()-50;
-		hSP = $('#scatterplot').height()-50;
-		refreshScatterPlot(wSP,hSP);
-	});	
-	refreshScatterPlot(wSP,hSP);
+		var wSP = $('#scatterplot').width()-margin.left-margin.right;
+		var hSP = $('#scatterplot').height()-margin.top-margin.bottom;
+		refreshScatterPlot(margin,wSP,hSP);
+	});	*/
+	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
 }

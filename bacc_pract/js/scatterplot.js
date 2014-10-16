@@ -14,14 +14,14 @@ var dataset = [
               ];
 var $prevClicked;
 //updates scatterplot and draws initial scatterplot
-var refreshScatterPlot = function(w,h){	
+var refreshScatterPlot = function(m,w,h){	
 	var xValue = function(d){return d[0];},
-		xScale = d3.scale.linear().range([0,w]),
+		xScale = d3.scale.linear().domain([0,670]).range([0,w]),
 		xMap = function(d){return xScale(xValue(d));},
 		xAxis = d3.svg.axis().scale(xScale).orient("bottom");
 		
 	var yValue = function(d){return d[1];},
-		yScale = d3.scale.linear().range([h,0]),
+		yScale = d3.scale.linear().domain([0,350]).range([h,0]),
 		yMap = function(d){return yScale(yValue(d));},
 		yAxis = d3.svg.axis().scale(yScale).orient("left");
 	
@@ -31,10 +31,10 @@ var refreshScatterPlot = function(w,h){
 	
 	var svg = d3.select("#vis")
 	.append("svg")
-	.attr("width",w + 50)
-	.attr("height",h + 50)
+	.attr("width",w + m.left + m.right)
+	.attr("height",h + m.top + m.bottom)
 	.append("g")
-	.attr("transform","translate(35,23)");
+	.attr("transform","translate("+m.left+","+m.top+")");
 	
 	svg.append('g')
 	.attr("class","x axis")
@@ -62,12 +62,8 @@ var refreshScatterPlot = function(w,h){
 	.data(dataset)
 	.enter()
 	.append("circle")
-	.attr("cx", function(d) {
-		return d[0];
-	})
-	.attr("cy", function(d) {
-		return d[1];
-	})
+	.attr("cx", xMap)
+	.attr("cy", yMap)
 	.attr("class",function(d){return d[2]})
 	.attr("r", 5)
 	.style("fill",function(d){return color(cValue(d));})
@@ -88,21 +84,4 @@ var refreshScatterPlot = function(w,h){
 		d3.select(this)
 		.attr("r",10);
 	});
-	/*.on('mousedown',function(d){
-		if($prevClicked!=null){
-			
-		}	
-		$prevClicked=d3.select("."+zValue(d));
-		$('#output').append("<div style='color:"+color(cValue(d))+"'>"+zValue(d)+" :"+xValue(d) + "/"+yValue(d)+"</div>");
-		$('.'+zValue(d)).animate({
-			
-		})
-	});
-	.on("mouseover",function(d){
-		$('#output').append("<div style='color:"+color(cValue(d))+"'>"+zValue(d)+" :"+xValue(d) + "/"+yValue(d)+"</div>");
-		$('#'+zValue(d)).css({'background-color':color(cValue(d)),'transition-duration':'0.5s'});
-	})
-	.on("mouseout",function(d){
-		$('#'+zValue(d)).css('background-color','white');
-	});*/
 }	

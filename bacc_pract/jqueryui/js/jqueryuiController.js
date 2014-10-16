@@ -24,11 +24,12 @@ $(document).ready(function(){
 	});
 	myLayout.addToggleBtn(".toggle-outer-west","west");
 	
-	var wSP=$('.inner-center').width()-50;
-	var hSP=$('.inner-center').height()-100;//-$('.inner-center .header').height();
+	var margin = {top: 15, right: 30, bottom: 75, left: 40};
+	var wSP=$('.inner-center').width()-margin.left-margin.right;
+	var hSP=$('.inner-center').height()-margin.top-margin.bottom;//-$('.inner-center .header').height();
 	var wBC=$('.outer-west').width()-10;
 	var hBC=$('.outer-west').height()-50;
-	refreshScatterPlot(wSP,hSP);
+	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
 });
