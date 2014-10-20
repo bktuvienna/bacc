@@ -1,5 +1,6 @@
 window.onload = function() {
-	
+	//performance measurement start
+	var start=window.performance.now();
 	//converting a div to a dock manager object
 	var divDockManager = document.getElementById('dockManager');
 	var dockManager = new dockspawn.DockManager(divDockManager);
@@ -44,7 +45,8 @@ window.onload = function() {
 		else
 			alert("You have to save a state before loading!");
 	});
-	
+	//performance measurement end
+	var end = window.performance.now();
 	//workaround for panels under the visualization (resizing of svg element in vis element)
 	/*$(window).mouseup(function(){
 		$('#vis').empty();
@@ -55,6 +57,9 @@ window.onload = function() {
 	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
+	//performance measurement analysis	
+	$('#console').append("<br><br>Javascript code for docking took "+parseInt(end-start)+" ms to execute.");
+	window.console.log(end-start);
 }
 
 			  

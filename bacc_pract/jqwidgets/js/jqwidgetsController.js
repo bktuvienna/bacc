@@ -1,6 +1,9 @@
 var layout;
 
 $(document).ready(function(){
+	//performance measurement start
+	var start = window.performance.now();
+	
 	var height=$(window).height() - $('header').height();
 	console.log(height);
 	var width=$(window).width;
@@ -56,7 +59,8 @@ $(document).ready(function(){
 		if(cnt>=3)
 			cnt=0;
 	});
-	
+	//performance measurement end
+	var end = window.performance.now();
 	
 	
 	//updating dataset and scatterplot depending on input values
@@ -69,4 +73,6 @@ $(document).ready(function(){
 	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
+	//performance measurement analysis
+	$('#console').append("<br>Javascript code for docking took "+parseInt(end-start)+" ms to execute.");
 });

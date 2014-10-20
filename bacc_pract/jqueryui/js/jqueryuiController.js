@@ -1,6 +1,8 @@
 var myLayout;
 
 $(document).ready(function(){
+	//performance measurement start
+	var start = window.performance.now();
 	var height=$(window).height() - $('header').height();
 	$('#container').height(height);
 	
@@ -23,6 +25,8 @@ $(document).ready(function(){
 		}	
 	});
 	myLayout.addToggleBtn(".toggle-outer-west","west");
+	//performance measurement end
+	var end = window.performance.now();
 	
 	var margin = {top: 15, right: 30, bottom: 75, left: 40};
 	var wSP=$('.inner-center').width()-margin.left-margin.right;
@@ -32,6 +36,9 @@ $(document).ready(function(){
 	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
+
+	//performance measurement analysis
+	$('#console').append("<br><br>Javascript code for docking took "+parseInt(end-start)+" ms to execute.");
 });
 
 
