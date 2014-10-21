@@ -7,7 +7,6 @@ $(document).ready(function(){
 	var height=$(window).height() - $('header').height();
 	console.log(height);
 	var width=$(window).width;
-
 	
 	$('#currentmode').append('default');
 	
@@ -50,6 +49,9 @@ $(document).ready(function(){
 		$('#container').jqxDocking('disable');
 	});
 	
+	//tabbed panels in values/barchart view
+	$('#values').jqxTabs({selectedItem:0});
+	
 	var cnt=0;
 	var modes = ['default','docked','floating'];
 	$('#mode').click(function(){	
@@ -61,14 +63,13 @@ $(document).ready(function(){
 	});
 	//performance measurement end
 	var end = window.performance.now();
-	
-	
+		
 	//updating dataset and scatterplot depending on input values
 	var margin = {top: 15, right: 15, bottom: 30, left: 40};
 	var wSP = $('#scatterplot').width()-margin.left-margin.right;
 	var hSP = $('#scatterplot').height()-margin.top-margin.bottom;
 	var wBC = $('#barchart').width();
-	var hBC = $('#barchart').height();
+	var hBC = $('#values').height();
 	
 	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
