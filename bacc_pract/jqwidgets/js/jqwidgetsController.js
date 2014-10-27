@@ -14,6 +14,7 @@ $(document).ready(function(){
 	$('#container').jqxDocking({
 		orientation:'horizontal',
 		width: width,
+		mode:'default'
 	});
 		
 	$('#container').jqxDocking(
