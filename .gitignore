@@ -1,7 +1,10 @@
 # Eclipse
 *.pydevproject
 .metadata
+.project
+.classpath
 .gradle
+.recommenders
 bin/
 tmp/
 *.tmp
@@ -23,9 +26,6 @@ local.properties
 .target
 # TeXlipse plugin
 .texlipse
-.classpath
-.project
-.settings/
 
 # Intellij
 .idea/
