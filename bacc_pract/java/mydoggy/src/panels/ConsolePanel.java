@@ -1,5 +1,7 @@
 package panels;
 
-public class ConsolePanel implements Panel{
+import javax.swing.JPanel;
+
+public class ConsolePanel extends JPanel{
 
 }

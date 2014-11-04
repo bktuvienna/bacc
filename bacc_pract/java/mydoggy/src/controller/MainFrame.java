@@ -24,7 +24,13 @@ import org.noos.xing.mydoggy.plaf.MyDoggyToolWindowManager;
 import org.noos.xing.mydoggy.plaf.ui.content.MyDoggyMultiSplitContentManagerUI;
 import org.noos.xing.mydoggy.plaf.ui.content.MyDoggyTabbedContentManagerUI;
 
-public class mainWindow {	
+import panels.OutputPanel;
+import panels.ScatterplotPanel;
+import panels.ValuesPanel;
+
+//coded with help from http://mydoggy.sourceforge.net/docs/tutorialset.html
+public class MainFrame {
+	
 	public static void main(String[] args) {
 		
 		JFrame mainWindow = new JFrame("MyDoggy");
@@ -36,38 +42,42 @@ public class mainWindow {
 		
 		mainWindow.setJMenuBar(menuBar);
 		mainWindow.getContentPane().add(twm);
-		mainWindow.setSize(new Dimension(800,800));
+		mainWindow.setSize(new Dimension(1024,768));
 		mainWindow.setVisible(true);
 		
 		runContentManager(twm);
-		setUpToolWindows(twm);
 	}
 	
 	public static void runContentManager(MyDoggyToolWindowManager twm){
 		ContentManager cm = twm.getContentManager();
 		cm.setContentManagerUI(new MyDoggyMultiSplitContentManagerUI());
 		
-		JPanel testpanel1 = new JPanel();
-		cm.addContent("test1","test1",null,testpanel1);
+		ScatterplotPanel scpanel = new ScatterplotPanel("Scatterplot");
+		cm.addContent("Scatterplot","Scatterplot",null,scpanel.returnScatterplotPanel());
 		
 		JPanel testpanel2 = new JPanel();
-		cm.addContent("test2","test2",null,testpanel2);		
-	}
-	
-	public static void setUpToolWindows(MyDoggyToolWindowManager twm){
+		cm.addContent("Console","Console",null,testpanel2);		
 		
 		Icon icon = new ImageIcon();
-		ToolWindow toolwindow = twm.registerToolWindow(
-			    "Debug",        // Tool Window identifier
-			    "Debugging",    // Tool Window Title
+		ValuesPanel vpanel = new ValuesPanel("",scpanel.dataset());
+		ToolWindow valuewindow = twm.registerToolWindow(
+			    "Values",        // Tool Window identifier
+			    "Values",    // Tool Window Title
 			    icon,           // Tool Window Icon
-			    new JPanel(),      // Tool Window Component
+			    vpanel.returnBarChartPanel(),      // Tool Window Component
 			    ToolWindowAnchor.LEFT // Tool Window Anchor
 			);
+		valuewindow.setAvailable(true);
 		
-		toolwindow.setType(ToolWindowType.DOCKED);
-		toolwindow.setAvailable(true);
-		
+		OutputPanel opanel = new OutputPanel(scpanel.dataset());
+		ToolWindow valuetable = twm.registerToolWindow(
+			    "Valuetable",        // Tool Window identifier
+			    "Valuetable",    // Tool Window Title
+			    icon,           // Tool Window Icon
+			    opanel.returnTablePanel(),      // Tool Window Component
+			    ToolWindowAnchor.RIGHT // Tool Window Anchor
+			);
+		valuetable.setAvailable(true);
 	}
 	
 
