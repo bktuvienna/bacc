@@ -20,17 +20,19 @@ import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.ui.ApplicationFrame;
 
 //http://www.java2s.com/Code/Java/Chart/JFreeChartXYSeriesDemo3.htm
-public class ValuesPanel extends ApplicationFrame{
+public class ValueChartPanel extends ApplicationFrame{
 	
 	private Component vpanel;
 	
 	//dataset comes from ScatterplotPanel
-	public ValuesPanel(String title,XYSeriesCollection dataset) {
+	public ValueChartPanel(String title,XYSeriesCollection dataset) {
 		super(title);
 		final JFreeChart chart = ChartFactory.createXYBarChart("","X",false,"Y",dataset,PlotOrientation.HORIZONTAL,true,true,false);
+				
 		XYPlot plot = chart.getXYPlot();
 		XYBarRenderer renderer = (XYBarRenderer)plot.getRenderer();
 		renderer.setShadowVisible(false);
+		renderer.setMargin(0.96);
 		
 		final ChartPanel panel = new ChartPanel(chart);
 		panel.setMinimumDrawHeight(10);
