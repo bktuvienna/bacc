@@ -7,7 +7,7 @@
          point="org.eclipse.core.runtime.applications">
       <application>
          <run
-               class="eclipsercp.Application">
+               class="rcpcontroller.Application">
          </run>
       </application>
    </extension>
@@ -15,8 +15,8 @@
          point="org.eclipse.ui.perspectives">
       <perspective
             name="Perspective"
-            class="layout.Perspective"
-            id="layout.perspective">
+            class="views.layout.Perspective"
+            id="views.layout.perspective">
       </perspective>
    </extension>
    <extension

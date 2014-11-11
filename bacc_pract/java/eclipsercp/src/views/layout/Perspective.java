@@ -1,4 +1,4 @@
-package layout;
+package views.layout;
 
 import org.eclipse.ui.IFolderLayout;
 import org.eclipse.ui.IPageLayout;
