@@ -15,31 +15,31 @@
          point="org.eclipse.ui.perspectives">
       <perspective
             name="Perspective"
-            class="eclipsercp.Perspective"
-            id="eclipsercp.perspective">
+            class="layout.Perspective"
+            id="layout.perspective">
       </perspective>
    </extension>
    <extension
          point="org.eclipse.ui.views">
         <view
             name="ScatterplotView"
-            class="eclipsercp.ScatterplotView"
-            id="eclipsercp.scatterplotView">
+            class="views.ScatterplotView"
+            id="views.scatterplotView">
       </view>
        <view
             name="ValuechartView"
-            class="eclipsercp.ValuechartView"
-            id="eclipsercp.valuechartView">
+            class="views.ValuechartView"
+            id="views.valuechartView">
       </view>
       <view
             name="ValuetableView"
-            class="eclipsercp.ValuetableView"
-            id="eclipsercp.valuetableView">
+            class="views.ValuetableView"
+            id="views.valuetableView">
       </view>
       <view
             name="ConsoleView"
-            class="eclipsercp.ConsoleView"
-            id="eclipsercp.consoleView">
+            class="views.ConsoleView"
+            id="views.consoleView">
       </view>
    </extension>
    <extension
