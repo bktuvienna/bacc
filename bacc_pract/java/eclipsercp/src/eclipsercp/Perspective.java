@@ -4,22 +4,25 @@ import org.eclipse.ui.IFolderLayout;
 import org.eclipse.ui.IPageLayout;
 import org.eclipse.ui.IPerspectiveFactory;
 
-public class Perspective implements IPerspectiveFactory {
+import eclipsercp.ScatterplotView;
 
-	/**
-	 * The ID of the perspective as specified in the extension.
-	 */
-	public static final String ID = "eclipsercp.perspective";
+public class Perspective implements IPerspectiveFactory {
 
 	public void createInitialLayout(IPageLayout layout) {
 		String editorArea = layout.getEditorArea();
-		layout.setEditorAreaVisible(false);
 		
-		layout.addStandaloneView(NavigationView.ID,  false, IPageLayout.LEFT, 0.25f, editorArea);
-		IFolderLayout folder = layout.createFolder("messages", IPageLayout.TOP, 0.5f, editorArea);
-		folder.addPlaceholder(View.ID + ":*");
-		folder.addView(View.ID);
+		IFolderLayout left = layout.createFolder("left", IPageLayout.LEFT, (float) 0.25, editorArea);
+		left.addView(ValuechartView.ID);
 		
-		layout.getViewLayout(NavigationView.ID).setCloseable(false);
+		IFolderLayout right = layout.createFolder("right", IPageLayout.RIGHT, (float) 0.25, editorArea);
+		right.addView(ValuetableView.ID);
+		
+		
+		//layout.setEditorAreaVisible(false);
+		//layout.setFixed(true);
+		
+		//layout.addStandaloneView(ScatterplotView.ID,  false, IPageLayout.LEFT, 0.25f, editorArea);
+		//IFolderLayout folder = layout.createFolder("views", arg1, arg2, arg3)
 	}
+
 }

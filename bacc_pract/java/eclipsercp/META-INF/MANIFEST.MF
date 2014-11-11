@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
-Bundle-Name: Eclipsercp
+Bundle-Name: EclipseRcp
 Bundle-SymbolicName: eclipsercp;singleton:=true
 Bundle-Version: 1.0.0.qualifier
 Bundle-Activator: eclipsercp.Activator

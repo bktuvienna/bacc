@@ -5,6 +5,7 @@
 .classpath
 .gradle
 .recommenders
+runtime-eclipsercp.application
 bin/
 tmp/
 *.tmp
