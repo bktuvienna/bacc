@@ -1,4 +1,4 @@
-package panels;
+package views;
 
 import java.awt.Component;
 import java.util.List;
@@ -11,11 +11,11 @@ import javax.swing.table.AbstractTableModel;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
-public class ValueTablePanel extends JPanel{
+public class ValuetableView extends JPanel{
 	
 	private JPanel tpanel;
 	
-	public ValueTablePanel(XYSeriesCollection dataset){
+	public ValuetableView(XYSeriesCollection dataset){
 		super();
 		
 		XYSeries values = dataset.getSeries(0);

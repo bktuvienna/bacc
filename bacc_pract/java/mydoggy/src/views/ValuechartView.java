@@ -1,4 +1,4 @@
-package panels;
+package views;
 
 import java.awt.Component;
 
@@ -20,12 +20,12 @@ import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.ui.ApplicationFrame;
 
 //http://www.java2s.com/Code/Java/Chart/JFreeChartXYSeriesDemo3.htm
-public class ValueChartPanel extends ApplicationFrame{
+public class ValuechartView extends ApplicationFrame{
 	
 	private Component vpanel;
 	
 	//dataset comes from ScatterplotPanel
-	public ValueChartPanel(String title,XYSeriesCollection dataset) {
+	public ValuechartView(String title,XYSeriesCollection dataset) {
 		super(title);
 		final JFreeChart chart = ChartFactory.createXYBarChart("","X",false,"Y",dataset,PlotOrientation.HORIZONTAL,true,true,false);
 				

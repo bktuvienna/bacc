@@ -1,4 +1,4 @@
-package panels;
+package views;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -22,12 +22,12 @@ import org.jfree.ui.ApplicationFrame;
 
 //http://www.java2s.com/Code/Java/Chart/JFreeChartFastScatterPlotDemo.htm
 //http://stackoverflow.com/questions/6665354/changing-the-shapes-of-points-in-scatter-plot
-public class ScatterplotPanel extends ApplicationFrame {
+public class ScatterplotView extends ApplicationFrame {
 	
 	private Component scpanel;
 	private XYSeriesCollection dataset;
 	
-	public ScatterplotPanel(String title) {
+	public ScatterplotView(String title) {
 		super(title);
 		JFreeChart chart = ChartFactory.createScatterPlot("", "X", "Y", createData());
 		XYPlot plot = (XYPlot)chart.getPlot();

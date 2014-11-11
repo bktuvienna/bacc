@@ -24,9 +24,9 @@ import org.noos.xing.mydoggy.plaf.MyDoggyToolWindowManager;
 import org.noos.xing.mydoggy.plaf.ui.content.MyDoggyMultiSplitContentManagerUI;
 import org.noos.xing.mydoggy.plaf.ui.content.MyDoggyTabbedContentManagerUI;
 
-import panels.ValueTablePanel;
-import panels.ScatterplotPanel;
-import panels.ValueChartPanel;
+import views.ScatterplotView;
+import views.ValuechartView;
+import views.ValuetableView;
 
 //coded with help from http://mydoggy.sourceforge.net/docs/tutorialset.html
 public class MainFrame {
@@ -52,14 +52,14 @@ public class MainFrame {
 		ContentManager cm = twm.getContentManager();
 		cm.setContentManagerUI(new MyDoggyMultiSplitContentManagerUI());
 		
-		ScatterplotPanel scpanel = new ScatterplotPanel("Scatterplot");
+		ScatterplotView scpanel = new ScatterplotView("Scatterplot");
 		cm.addContent("Scatterplot","Scatterplot",null,scpanel.returnScatterplotPanel());
 		
 		JPanel testpanel2 = new JPanel();
 		cm.addContent("Console","Console",null,testpanel2);		
 		
 		Icon icon = new ImageIcon();
-		ValueChartPanel vpanel = new ValueChartPanel("",scpanel.dataset());
+		ValuechartView vpanel = new ValuechartView("",scpanel.dataset());
 		ToolWindow valuewindow = twm.registerToolWindow(
 			    "Values",        // Tool Window identifier
 			    "Values",    // Tool Window Title
@@ -69,7 +69,7 @@ public class MainFrame {
 			);
 		valuewindow.setAvailable(true);
 		
-		ValueTablePanel opanel = new ValueTablePanel(scpanel.dataset());
+		ValuetableView opanel = new ValuetableView(scpanel.dataset());
 		ToolWindow valuetable = twm.registerToolWindow(
 			    "Valuetable",        // Tool Window identifier
 			    "Valuetable",    // Tool Window Title
