@@ -10,7 +10,7 @@ import org.swtchart.Chart;
 public class ScatterplotView extends ViewPart{
 	
 	public static final String ID = "eclipsercp.scatterplotView";
-	private Chart chart;
+	//private Chart chart;
 	
 	public ScatterplotView(){
 		super();
@@ -18,12 +18,12 @@ public class ScatterplotView extends ViewPart{
 	
 	@Override
 	public void createPartControl(Composite parent) {
-		chart = new Chart(parent, SWT.NONE);
+		Chart chart = new Chart(parent, SWT.NONE);
 	}
 
 	@Override
 	public void setFocus() {
-		chart.setFocus();		
+		//chart.setFocus();		
 	}
 
 }

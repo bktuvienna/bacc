@@ -10,19 +10,20 @@ public class Perspective implements IPerspectiveFactory {
 
 	public void createInitialLayout(IPageLayout layout) {
 		String editorArea = layout.getEditorArea();
+		layout.setEditorAreaVisible(false);
+		layout.setFixed(true);
 		
 		IFolderLayout left = layout.createFolder("left", IPageLayout.LEFT, (float) 0.25, editorArea);
 		left.addView(ValuechartView.ID);
 		
-		IFolderLayout right = layout.createFolder("right", IPageLayout.RIGHT, (float) 0.25, editorArea);
+		IFolderLayout right = layout.createFolder("right", IPageLayout.RIGHT, (float) 0.7, editorArea);
 		right.addView(ValuetableView.ID);
 		
+		IFolderLayout center = layout.createFolder("center", IPageLayout.RIGHT, (float) 0.3, editorArea);
+		center.addView(ScatterplotView.ID);
 		
-		//layout.setEditorAreaVisible(false);
-		//layout.setFixed(true);
-		
-		//layout.addStandaloneView(ScatterplotView.ID,  false, IPageLayout.LEFT, 0.25f, editorArea);
-		//IFolderLayout folder = layout.createFolder("views", arg1, arg2, arg3)
+		IFolderLayout bottom = layout.createFolder("bottom", IPageLayout.BOTTOM, (float) 0.8,"center");
+		bottom.addView(ConsoleView.ID);
 	}
 
 }
