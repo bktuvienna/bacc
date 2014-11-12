@@ -13,6 +13,8 @@ import javax.swing.JMenuBar;
 import javax.swing.JPanel;
 import javax.swing.border.Border;
 
+import model.Data;
+
 import org.noos.xing.mydoggy.ContentManager;
 import org.noos.xing.mydoggy.ContentManagerUI;
 import org.noos.xing.mydoggy.ToolWindow;
@@ -52,14 +54,14 @@ public class MainFrame {
 		ContentManager cm = twm.getContentManager();
 		cm.setContentManagerUI(new MyDoggyMultiSplitContentManagerUI());
 		
-		ScatterplotView scpanel = new ScatterplotView("Scatterplot");
+		ScatterplotView scpanel = new ScatterplotView("Scatterplot",Data.getDataset());
 		cm.addContent("Scatterplot","Scatterplot",null,scpanel.returnScatterplotPanel());
 		
 		JPanel testpanel2 = new JPanel();
 		cm.addContent("Console","Console",null,testpanel2);		
 		
 		Icon icon = new ImageIcon();
-		ValuechartView vpanel = new ValuechartView("",scpanel.dataset());
+		ValuechartView vpanel = new ValuechartView("",Data.getDataset());
 		ToolWindow valuewindow = twm.registerToolWindow(
 			    "Values",        // Tool Window identifier
 			    "Values",    // Tool Window Title
@@ -69,7 +71,7 @@ public class MainFrame {
 			);
 		valuewindow.setAvailable(true);
 		
-		ValuetableView opanel = new ValuetableView(scpanel.dataset());
+		ValuetableView opanel = new ValuetableView(Data.getDataset());
 		ToolWindow valuetable = twm.registerToolWindow(
 			    "Valuetable",        // Tool Window identifier
 			    "Valuetable",    // Tool Window Title

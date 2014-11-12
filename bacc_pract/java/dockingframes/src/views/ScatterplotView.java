@@ -1,33 +1,30 @@
 package views;
 
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.Ellipse2D;
-import java.util.Random;
+
+import javax.swing.JPanel;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.plot.FastScatterPlot;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYItemRenderer;
-import org.jfree.data.xy.XYDataset;
-import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
-import org.jfree.ui.ApplicationFrame;
 
+import bibliothek.gui.dock.common.SingleCDockable;
+import bibliothek.gui.dock.common.DefaultSingleCDockable;
+import bibliothek.gui.dock.common.action.CAction;
 
-//http://www.java2s.com/Code/Java/Chart/JFreeChartFastScatterPlotDemo.htm
-//http://stackoverflow.com/questions/6665354/changing-the-shapes-of-points-in-scatter-plot
-public class ScatterplotView extends ApplicationFrame {
+public class ScatterplotView extends DefaultSingleCDockable{
+
+	public ScatterplotView(String id, String title, CAction[] actions, XYSeriesCollection dataset) {
+		super(id, title, actions);
+		this.createContent(dataset);
+	}
 	
-	private Component scpanel;
-	
-	public ScatterplotView(String title,XYDataset dataset) {
-		super(title);
+	private void createContent(XYSeriesCollection dataset){
 		JFreeChart chart = ChartFactory.createScatterPlot("", "X", "Y", dataset);
 		XYPlot plot = (XYPlot)chart.getPlot();
 		Shape dotShape = new Ellipse2D.Double(0,0,5,5);
@@ -39,12 +36,9 @@ public class ScatterplotView extends ApplicationFrame {
         panel.setMaximumDrawHeight(2000);
         panel.setMinimumDrawWidth(10);
         panel.setMaximumDrawWidth(2000);
-        scpanel = panel;
-	}
-	
-	//returns the panel where the Scatterplot is drawn
-	public Component returnScatterplotPanel(){
-		return scpanel;
+        panel.setVisible(true);
+        this.add(panel);
 	}
 
+	
 }
