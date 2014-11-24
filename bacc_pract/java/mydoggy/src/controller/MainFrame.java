@@ -34,7 +34,7 @@ import views.ValuetableView;
 public class MainFrame {
 	
 	public static void main(String[] args) {
-		
+		//test
 		JFrame mainWindow = new JFrame("MyDoggy");
 		MyDoggyToolWindowManager twm = new MyDoggyToolWindowManager();
 		
