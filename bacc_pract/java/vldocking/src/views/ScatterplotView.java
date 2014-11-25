@@ -19,12 +19,13 @@ import org.jfree.ui.ApplicationFrame;
 import com.vldocking.swing.docking.DockKey;
 import com.vldocking.swing.docking.Dockable;
 
-public class ScatterplotView extends ApplicationFrame implements Dockable{
+public class ScatterplotView extends JPanel implements Dockable{
 	
 	DockKey key = new DockKey("scatterplot");
 	
 	public ScatterplotView(){
-		super("Scatterplot");
+		super();
+		this.setSize(340,768);
 		setUpView();
 	}
 	
@@ -40,6 +41,8 @@ public class ScatterplotView extends ApplicationFrame implements Dockable{
         panel.setMaximumDrawHeight(2000);
         panel.setMinimumDrawWidth(10);
         panel.setMaximumDrawWidth(2000);
+        panel.setSize(this.getSize());
+        this.add(panel);
 	}
 	
 	@Override

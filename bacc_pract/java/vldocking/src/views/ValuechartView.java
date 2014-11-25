@@ -17,12 +17,13 @@ import org.jfree.ui.ApplicationFrame;
 import com.vldocking.swing.docking.DockKey;
 import com.vldocking.swing.docking.Dockable;
 
-public class ValuechartView extends ApplicationFrame implements Dockable{
+public class ValuechartView extends JPanel implements Dockable{
 	
 	DockKey key = new DockKey("valuechart");
 	
 	public ValuechartView(){
-		super("Valuechart");
+		super();
+		this.setSize(340,768);
 		setUpView();
 	}
 	
@@ -39,6 +40,8 @@ public class ValuechartView extends ApplicationFrame implements Dockable{
 	    panel.setMaximumDrawHeight(2000);
 	    panel.setMinimumDrawWidth(10);
 	    panel.setMaximumDrawWidth(2000);
+	    panel.setSize(this.getSize());
+	    this.add(panel);
 	}
 	
 	@Override

@@ -1,12 +1,14 @@
 package controller;
 
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
 import views.ConsoleView;
 import views.ScatterplotView;
 import views.ValuechartView;
 import views.ValuetableView;
 
+import com.vldocking.swing.docking.DockingConstants;
 import com.vldocking.swing.docking.DockingDesktop;
 
 public class vlController extends JFrame{
@@ -22,14 +24,26 @@ public class vlController extends JFrame{
 		this.setSize(1024,768);
 		this.setVisible(true);
 		this.getContentPane().add(desk);
-		desk.addDockable(sview);
-		//desk.addDockable(vview);
-		//desk.addDockable(vtview);
-		//desk.addDockable(cview);
+
+		
+		desk.addDockable(sview);		
+		desk.split(sview,cview,DockingConstants.SPLIT_BOTTOM);
+		desk.split(sview,vtview,DockingConstants.SPLIT_RIGHT);
+		desk.split(sview,vview,DockingConstants.SPLIT_LEFT);
+		
+		desk.setDockableWidth(sview, 0.75);
+		desk.setDockableWidth(vview, 0.25);
+		desk.setDockableWidth(vtview, 0.25);
+		desk.setDockableHeight(cview,0.20);
 	}
 		
 	public static void main(String[] args){
 		vlController frame = new vlController();
+		SwingUtilities.invokeLater(new Runnable(){
+			public void run(){
+				frame.setVisible(true);
+			}
+		});
 	}
 
 	
