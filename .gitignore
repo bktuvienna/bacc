@@ -15,16 +15,31 @@ tmp/
 local.properties
 .settings/
 .loadpath
+
+# NetBeans specific #
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+
 # External tool builders
 .externalToolBuilders/
+
 # Locally stored "Eclipse launch configurations"
 *.launch
+
 # CDT-specific
 .cproject
+
 # PDT-specific
 .buildpath
+
 # sbteclipse plugin
 .target
+
 # TeXlipse plugin
 .texlipse
 
@@ -39,3 +54,5 @@ local.properties
 # Maven
 log/
 target/
+/bacc_pract/java/netbeansrcp/nbproject/private/
+/bacc_pract/java/netbeansrcp/testmodul/nbproject/private/
