@@ -1,7 +1,0 @@
-Manifest-Version: 1.0
-AutoUpdate-Show-In-Client: true
-OpenIDE-Module: org.nbrcp.demo.valuetable
-OpenIDE-Module-Localizing-Bundle: org/nbrcp/demo/valuetable/Bundle.properties
-OpenIDE-Module-Requires: org.openide.windows.WindowManager
-OpenIDE-Module-Specification-Version: 1.0
-
