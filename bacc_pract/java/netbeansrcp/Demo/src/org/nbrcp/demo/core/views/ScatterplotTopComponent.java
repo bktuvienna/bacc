@@ -7,6 +7,8 @@ package org.nbrcp.demo.core.views;
 
 import java.awt.Shape;
 import java.awt.geom.Ellipse2D;
+import javax.swing.JButton;
+import javax.swing.JPanel;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -61,17 +63,17 @@ public final class ScatterplotTopComponent extends TopComponent {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jPanel1 = new javax.swing.JPanel();
+        jPanel1 = new Scatterplot();
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
+            .addGap(0, 436, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
+            .addGap(0, 355, Short.MAX_VALUE)
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
@@ -91,20 +93,7 @@ public final class ScatterplotTopComponent extends TopComponent {
     // End of variables declaration//GEN-END:variables
     @Override
     public void componentOpened() {
-        JFreeChart chart = ChartFactory.createScatterPlot("", "X", "Y", Data.getDataset());
-        XYPlot plot = (XYPlot)chart.getPlot();
-        Shape dotShape = new Ellipse2D.Double(0,0,5,5);
-        XYItemRenderer renderer = plot.getRenderer();
-        renderer.setSeriesShape(0, dotShape);
-		
-        final ChartPanel panel = new ChartPanel(chart,true);
-        panel.setMinimumDrawHeight(10);
-        panel.setMaximumDrawHeight(2000);
-        panel.setMinimumDrawWidth(10);
-        panel.setMaximumDrawWidth(2000);
-        jPanel1.add(panel);
-        panel.setVisible(true);
-        jPanel1.setVisible(true);
+           
     }
 
     @Override
