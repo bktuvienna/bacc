@@ -35,6 +35,7 @@ public class vlController extends JFrame{
 		desk.setDockableWidth(vview, 0.25);
 		desk.setDockableWidth(vtview, 0.25);
 		desk.setDockableHeight(cview,0.20);
+		desk.setFloating(sview, true);
 	}
 		
 	public static void main(String[] args){
