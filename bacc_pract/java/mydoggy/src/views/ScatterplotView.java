@@ -18,8 +18,6 @@ import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.ui.ApplicationFrame;
-
-
 //http://www.java2s.com/Code/Java/Chart/JFreeChartFastScatterPlotDemo.htm
 //http://stackoverflow.com/questions/6665354/changing-the-shapes-of-points-in-scatter-plot
 public class ScatterplotView extends ApplicationFrame {
@@ -40,11 +38,9 @@ public class ScatterplotView extends ApplicationFrame {
         panel.setMinimumDrawWidth(10);
         panel.setMaximumDrawWidth(2000);
         scpanel = panel;
-	}
-	
+	}	
 	//returns the panel where the Scatterplot is drawn
 	public Component returnScatterplotPanel(){
 		return scpanel;
 	}
-
 }

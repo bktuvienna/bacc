@@ -60,8 +60,7 @@ public class MainFrame implements ActionListener, ItemListener{
 	}
 	
 	@Override
-	public void itemStateChanged(ItemEvent e) {
-		
+	public void itemStateChanged(ItemEvent e) {		
 	}
 
 
@@ -124,7 +123,11 @@ public class MainFrame implements ActionListener, ItemListener{
 	}
 	
 	public static void main(String[] args){
+		long before = System.currentTimeMillis();
 		MainFrame f = new MainFrame();
 		f.createWindow();
+		long after = System.currentTimeMillis();
+		long performance = after-before;
+		System.out.println("Performance: "+performance+" ms");
 	}
 }

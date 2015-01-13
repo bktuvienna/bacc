@@ -38,7 +38,5 @@ public class ScatterplotView extends DefaultSingleCDockable{
         panel.setMaximumDrawWidth(2000);
         panel.setVisible(true);
         this.add(panel);
-	}
-
-	
+	}	
 }

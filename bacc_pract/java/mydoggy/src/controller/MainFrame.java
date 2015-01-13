@@ -35,6 +35,7 @@ public class MainFrame {
 	
 	public static void main(String[] args) {
 		//test
+		long before = System.currentTimeMillis();
 		JFrame mainWindow = new JFrame("MyDoggy");
 		MyDoggyToolWindowManager twm = new MyDoggyToolWindowManager();
 		
@@ -48,6 +49,9 @@ public class MainFrame {
 		mainWindow.setVisible(true);
 		
 		runContentManager(twm);
+		long after = System.currentTimeMillis();
+		long performance = after-before;
+		System.out.println("Performance: "+performance+" ms");
 	}
 	
 	public static void runContentManager(MyDoggyToolWindowManager twm){
@@ -81,6 +85,4 @@ public class MainFrame {
 			);
 		valuetable.setAvailable(true);
 	}
-	
-
 }

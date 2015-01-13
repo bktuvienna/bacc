@@ -38,5 +38,4 @@ public class ValuetableView extends JPanel{
 	public Component returnTablePanel(){
 		return tpanel;
 	}
-
 }

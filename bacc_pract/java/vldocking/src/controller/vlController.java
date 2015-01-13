@@ -39,12 +39,16 @@ public class vlController extends JFrame{
 	}
 		
 	public static void main(String[] args){
+		long before = System.currentTimeMillis();
 		vlController frame = new vlController();
 		SwingUtilities.invokeLater(new Runnable(){
 			public void run(){
 				frame.setVisible(true);
 			}
 		});
+		long after = System.currentTimeMillis();
+		long performance = after-before;
+		System.out.println("Performance: "+performance+" ms");
 	}
 
 	

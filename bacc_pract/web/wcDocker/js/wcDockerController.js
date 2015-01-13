@@ -1,4 +1,5 @@
 var state;
+var myDocker;
 $(document).ready(function() {
 	//performance measuerment start
 	var start = window.performance.now();
@@ -6,7 +7,7 @@ $(document).ready(function() {
 	//wcDocker implementation
 	$('#container').height($(window).height() - $('header').height());
 	$('#container').width($(window).width());
-	var myDocker = new wcDocker($('#container'));
+	myDocker = new wcDocker($('#container'));
 	if(myDocker) {
 		var layoutConfiguration;
 		var currentTheme = 'Default';
@@ -63,10 +64,11 @@ $(document).ready(function() {
 		});
 		
 		$('#loadstate').click(function(){
+			console.log(state);
 			if(state){
 				console.log('clicked load',state);
 				myDocker.restore(state);
-				refreshContent();
+				refreshContent(myDocker);
 			} else {
 				alert('Restoring went wrong!');
 			}
@@ -94,7 +96,23 @@ var refreshContent = function(){
 	var hSP = $('#scatterplot').parent().height()-margin.top-margin.bottom;
 	var wBC = $('#values').parent().width();
 	var hBC = $('#values').parent().height()-40;
+	
+	$('#savestate').click(function(){
+			console.log('clicked save',state);
+			state=myDocker.save();
+	});
 		
+	$('#loadstate').click(function(){
+		console.log(state);
+		if(state){
+			console.log('clicked load',state);
+			myDocker.restore(state);
+			refreshContent();
+		} else {
+			alert('Restoring went wrong!');
+		}
+	});
+	
 	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();
