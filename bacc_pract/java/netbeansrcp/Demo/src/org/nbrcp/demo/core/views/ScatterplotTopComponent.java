@@ -5,16 +5,6 @@
  */
 package org.nbrcp.demo.core.views;
 
-import java.awt.Shape;
-import java.awt.geom.Ellipse2D;
-import javax.swing.JButton;
-import javax.swing.JPanel;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.xy.XYItemRenderer;
-import org.nbrcp.demo.core.model.Data;
 import org.netbeans.api.settings.ConvertAsProperties;
 import org.openide.awt.ActionID;
 import org.openide.awt.ActionReference;

@@ -21,8 +21,8 @@ public class Data {
 		dataset = new XYSeriesCollection();
 	}
 	
-	public static XYSeriesCollection getDataset(){
-		if(Data.instance==null){
+	public static XYSeriesCollection getDataset(){ 
+            if(Data.instance==null){
                     Data.instance=new Data();
                     XYSeriesCollection xySeriesCollection = new XYSeriesCollection();
 		    XYSeries series = new XYSeries("Scatterplot Values");

@@ -23,7 +23,7 @@ public class Scatterplot extends JPanel{
 	
     public Scatterplot(){
 		super();               
-		this.setSize(600,600);
+		this.setSize(800,520);
 		setUpView();
 	}
 	

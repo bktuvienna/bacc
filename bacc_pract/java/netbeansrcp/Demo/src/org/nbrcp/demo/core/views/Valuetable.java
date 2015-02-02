@@ -6,6 +6,7 @@
 package org.nbrcp.demo.core.views;
 
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
@@ -28,7 +29,8 @@ public class Valuetable extends JPanel{
 		XYSeriesCollection dataset = Data.getDataset();
 		XYSeries values = dataset.getSeries(0);
 		Object[][] data = new Object[400][2];
-		
+		System.out.println(data);
+                
 		for(int i=0;i<values.getItemCount();i++){
 			Number x = values.getX(i);
 			Number y = values.getY(i);
@@ -36,8 +38,14 @@ public class Valuetable extends JPanel{
 			data[i][1]=y;			
 		}
 		
-		Object[] colNames = {"X","Y"};		
+                Object[] colNames = {"X","Y"};		
 		JTable table = new JTable(data,colNames);
-		this.add(table);
+                table.setSize(this.getSize());
+                table.setVisible(true);
+                JScrollPane test = new JScrollPane(table);
+                test.setSize(this.getSize());
+                test.setVisible(true);
+                this.add(test);
+                this.setVisible(true);
 	}
 }
