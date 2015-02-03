@@ -1,3 +1,4 @@
+//code adapted from http://layout.jquery-dev.com/demos/simple.html
 var myLayout;
 
 $(document).ready(function(){
@@ -30,7 +31,7 @@ $(document).ready(function(){
 	
 	var margin = {top: 15, right: 30, bottom: 75, left: 40};
 	var wSP=$('.inner-center').width()-margin.left-margin.right;
-	var hSP=$('.inner-center').height()-margin.top-margin.bottom;//-$('.inner-center .header').height();
+	var hSP=$('.inner-center').height()-margin.top-margin.bottom;
 	var wBC=$('.outer-west').width()-10;
 	var hBC=$('.outer-west').height()-50;
 	refreshScatterPlot(margin,wSP,hSP);

@@ -11,6 +11,7 @@ import views.ValuetableView;
 import com.vldocking.swing.docking.DockingConstants;
 import com.vldocking.swing.docking.DockingDesktop;
 
+//adapted code from https://code.google.com/p/vldocking/w/list
 public class vlController extends JFrame{
 	
 	DockingDesktop desk = new DockingDesktop();

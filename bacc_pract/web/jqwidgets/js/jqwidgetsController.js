@@ -1,3 +1,4 @@
+//adapted code from: http://www.jqwidgets.com/jquery-widgets-demo/demos/jqxdocking/index.htm?(arctic)#demos/jqxdocking/defaultfunctionality.htm
 var layout;
 
 $(document).ready(function(){

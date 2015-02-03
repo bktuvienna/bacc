@@ -17,7 +17,7 @@ import views.ScatterplotView;
 import views.ValuechartView;
 import views.ValuetableView;
 
-//with help from http://www.javalobby.org/java/forums/t52990.html
+//adapted code from http://www.javalobby.org/java/forums/t52990.html
 public class fdcontroller {
 	public static void main(String[] args){
 		JFrame mainframe=new JFrame("Flexdock Demo");

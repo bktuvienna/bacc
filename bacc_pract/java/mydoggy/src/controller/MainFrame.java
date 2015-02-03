@@ -30,7 +30,7 @@ import views.ScatterplotView;
 import views.ValuechartView;
 import views.ValuetableView;
 
-//coded with help from http://mydoggy.sourceforge.net/docs/tutorialset.html
+//adapted code from from http://mydoggy.sourceforge.net/docs/tutorialset.html
 public class MainFrame {
 	
 	public static void main(String[] args) {

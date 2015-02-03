@@ -1,3 +1,4 @@
+//parts of this code are from http://www.dockspawn.com/#integration
 window.onload = function() {
 	//performance measurement start
 	var start=window.performance.now();
@@ -34,7 +35,7 @@ window.onload = function() {
 	var hBC = $('#values').height();
 	
 	var json;
-	
+	//save/load functionality how it should work, but framework code is buggy see chapter 3.1 Save/Load Functionality
 	$("#savestate").on('click',function(){
 		json = dockManager.saveState();	
 	});
@@ -48,12 +49,12 @@ window.onload = function() {
 	//performance measurement end
 	var end = window.performance.now();
 	//workaround for panels under the visualization (resizing of svg element in vis element)
-	/*$(window).mouseup(function(){
+	$(window).mouseup(function(){
 		$('#vis').empty();
 		var wSP = $('#scatterplot').width()-margin.left-margin.right;
 		var hSP = $('#scatterplot').height()-margin.top-margin.bottom;
 		refreshScatterPlot(margin,wSP,hSP);
-	});	*/
+	});	
 	refreshScatterPlot(margin,wSP,hSP);
 	refreshBarChart(wBC,hBC);
 	refreshValueTable();

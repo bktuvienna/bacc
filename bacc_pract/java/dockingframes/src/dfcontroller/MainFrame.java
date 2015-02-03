@@ -34,7 +34,7 @@ import bibliothek.gui.dock.common.SingleCDockable;
 import bibliothek.gui.dock.themes.ColorScheme;
 import bibliothek.gui.dock.themes.NoStackTheme;
 
-//with help from https://code.google.com/p/docking-frames/source/browse/code/trunk/docking-frames-base/docking-frames-demo-tutorial/src/main/java/tutorial/core/basics/ThemesExample.java?r=373
+//adapted code from https://code.google.com/p/docking-frames/source/browse/code/trunk/docking-frames-base/docking-frames-demo-tutorial/src/main/java/tutorial/core/basics/ThemesExample.java?r=373
 public class MainFrame implements ActionListener, ItemListener{
 	
 	CControl controller;
