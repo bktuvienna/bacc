@@ -96,8 +96,6 @@ public class MainFrame implements ActionListener, ItemListener{
 		frame.add(controller.getContentArea());
 		
 		//for adding multiple tabs of scatterplot CWorking Area is needed
-		//final CWorkingArea work = controller.createWorkingArea("work");
-				
 		SingleCDockable scatterplot = new ScatterplotView("scatterplot","Scatterplot",null,Data.getDataset());
 		SingleCDockable valuechart = new ValuechartView("valuechart","Valuechart",null,Data.getDataset());
 		SingleCDockable valuetable = new ValuetableView("valuetable","Valuetable",null,Data.getDataset());
@@ -109,14 +107,6 @@ public class MainFrame implements ActionListener, ItemListener{
 		grid.add(2,0,0.25,1,valuetable);
 		grid.add(1,1,0.5,0.25,console);
 		controller.getContentArea().deploy(grid);
-		
-		//work.add(scatterplot);
-		//work.show(scatterplot);
-		//DefaultMultipleCDockable editor = new DefaultMultipleCDockable(null);
-		//editor.setTitleText("Editor");
-		//editor.setCloseable(true);
-		//work.show(editor);
-		//editor.toFront();
 		
 		frame.setBounds(20,20,1024,768);
 		frame.setVisible(true);

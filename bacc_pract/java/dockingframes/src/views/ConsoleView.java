@@ -1,5 +1,7 @@
 package views;
 
+import java.awt.BorderLayout;
+
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 
@@ -17,7 +19,6 @@ public class ConsoleView extends DefaultSingleCDockable{
 	public void createContent(){
 		JPanel panel = new JPanel();
 		panel.setVisible(true);
-		panel.add(new JTextArea());
 		this.add(panel);
 	}
 }

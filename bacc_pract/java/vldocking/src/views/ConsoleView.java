@@ -17,7 +17,7 @@ public class ConsoleView extends JPanel implements Dockable{
 	}
 	
 	private void setUpView(){
-		this.setLayout(new BorderLayout());
+		//this.setLayout(new BorderLayout());
 		this.setName("Console");
 		this.setVisible(true);
 	}
